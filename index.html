@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-<title>Plánek elektrického obvodu</title><!-- v7: capacitor one edge -->
+<title>Plánek elektrického obvodu</title><!-- v11: capacitor aligned --><!-- v11: capacitor aligned, placement clicks pass through items -->
 <script>
 window.MathJax = { tex:{inlineMath:[['\\(','\\)'],['$','$']]}, svg:{fontCache:'global'} };
 </script>
@@ -45,7 +45,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);font-family:
 }
 .item,.nodeDot{position:absolute;transform-origin:center center;pointer-events:auto;user-select:none}
 .nodeDot{width:9px;height:9px;border-radius:50%;background:#000;transform:translate(-50%,-50%);z-index:5;pointer-events:none}
-.item svg{overflow:visible}
+.item svg{overflow:visible;pointer-events:none}
 .item text{font-size:12px;font-weight:800;fill:#334155;text-anchor:middle}
 .edgePreview{
   position:fixed;width:12px;height:12px;border-radius:50%;background:rgba(37,99,235,.20);
@@ -179,7 +179,7 @@ button.danger{background:var(--danger)}
 
 <script>
 const GRID = 40;
-const HIT_TOL = 34; // větší tolerance kliknutí na hranu čtverce
+const HIT_TOL = 42; // větší tolerance kliknutí na hranu čtverce
 const RES_SPAN = 2; // rezistor zabírá dvě strany čtverce
 const board = document.getElementById('board');
 const wrap = document.getElementById('wrap');
@@ -225,26 +225,42 @@ function screenToBoard(clientX, clientY){
 }
 
 function nearestEdgePoint(x,y){
-  const cellX = Math.floor(x/GRID);
-  const cellY = Math.floor(y/GRID);
-  const candidates = [];
-  for(let dx=-1; dx<=1; dx++){
-    for(let dy=-1; dy<=1; dy++){
-      const gx=cellX+dx, gy=cellY+dy;
-      candidates.push(
-        {x:gx*GRID + GRID/2, y:gy*GRID, dir:'h', a:`${gx},${gy}`, b:`${gx+1},${gy}`},
-        {x:gx*GRID + GRID/2, y:(gy+1)*GRID, dir:'h', a:`${gx},${gy+1}`, b:`${gx+1},${gy+1}`},
-        {x:gx*GRID, y:gy*GRID + GRID/2, dir:'v', a:`${gx},${gy}`, b:`${gx},${gy+1}`},
-        {x:(gx+1)*GRID, y:gy*GRID + GRID/2, dir:'v', a:`${gx+1},${gy}`, b:`${gx+1},${gy+1}`}
-      );
-    }
+  // výrazně spolehlivější výběr hran
+  // nejdřív zjistíme, jestli je uživatel blíž svislé nebo vodorovné hraně
+
+  const nearestVerticalX = Math.round(x / GRID) * GRID;
+  const nearestHorizontalY = Math.round(y / GRID) * GRID;
+
+  const dx = Math.abs(x - nearestVerticalX);
+  const dy = Math.abs(y - nearestHorizontalY);
+
+  const preferVertical = dx < dy;
+
+  if(preferVertical){
+    const vx = Math.round(x / GRID);
+    const vy = Math.floor(y / GRID);
+
+    return {
+      x: vx * GRID,
+      y: vy * GRID + GRID / 2,
+      dir: 'v',
+      a: `${vx},${vy}`,
+      b: `${vx},${vy+1}`,
+      dist: dx
+    };
+  } else {
+    const hx = Math.floor(x / GRID);
+    const hy = Math.round(y / GRID);
+
+    return {
+      x: hx * GRID + GRID / 2,
+      y: hy * GRID,
+      dir: 'h',
+      a: `${hx},${hy}`,
+      b: `${hx+1},${hy}`,
+      dist: dy
+    };
   }
-  let best = candidates[0], bd = Infinity;
-  for(const c of candidates){
-    const d = Math.hypot(x-c.x, y-c.y);
-    if(d < bd){ bd=d; best=c; }
-  }
-  return {...best, dist:bd};
 }
 
 function addItem(type, edge, preset={}){
@@ -342,11 +358,17 @@ function render(){
     if(item.type === 'capacitor') el.innerHTML = capacitorSvg(item);
 
     el.addEventListener('pointerdown', () => {
+      // Při vkládání nového prvku nesmí starý prvek blokovat kliknutí na hranu mřížky.
+      // Dlouhé podržení pro úpravy funguje jen tehdy, když není aktivní vkládací nástroj.
+      if(selectedTool && selectedTool !== 'eraser') return;
+
       pointerDownOnItem = true;
       clearTimeout(longPressTimer);
       longPressTimer = setTimeout(() => openEdit(item.id), 550);
     });
     el.addEventListener('pointerup', () => {
+      if(selectedTool && selectedTool !== 'eraser') return;
+
       clearTimeout(longPressTimer);
       setTimeout(()=>pointerDownOnItem=false,0);
     });
