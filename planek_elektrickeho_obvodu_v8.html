@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+<title>Plánek elektrického obvodu</title><!-- v7: capacitor one edge -->
+<script>
+window.MathJax = { tex:{inlineMath:[['\\(','\\)'],['$','$']]}, svg:{fontCache:'global'} };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+:root{
+  --bg:#f3f6f8; --panel:#ffffff; --text:#17212b; --muted:#64748b;
+  --line:#d7dee8; --grid:#dce4ec; --major:#c6d2df;
+  --blue:#2563eb; --danger:#b94a48; --wire:#1f2937;
+  --shadow:0 12px 28px rgba(15,23,42,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text)}
+.topbar{
+  height:72px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 14px;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);box-shadow:0 2px 12px rgba(15,23,42,.06);z-index:10;position:relative;
+}
+.toolsLeft,.toolsRight{display:flex;align-items:center;gap:10px}
+.tool{
+  width:82px;height:52px;border:2px solid var(--line);background:#fff;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 10px rgba(15,23,42,.06);
+}
+.tool.selected{border-color:var(--blue);box-shadow:0 0 0 4px rgba(37,99,235,.14),0 4px 10px rgba(15,23,42,.06)}
+.tool.eraser.selected{border-color:var(--danger);box-shadow:0 0 0 4px rgba(185,74,72,.14),0 4px 10px rgba(15,23,42,.06)}
+.tool svg{width:66px;height:34px}
+.help{font-size:13px;color:var(--muted);max-width:430px;line-height:1.25}
+.boardWrap{
+  position:absolute;left:0;right:0;top:72px;bottom:58px;overflow:hidden;touch-action:none;background:#eef3f7;
+}
+.board{
+  position:absolute;left:0;top:0;width:4000px;height:4000px;transform-origin:0 0;background-color:#fff;
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px),
+    linear-gradient(var(--major) 2px,transparent 2px),
+    linear-gradient(90deg,var(--major) 2px,transparent 2px);
+  background-size:40px 40px,40px 40px,200px 200px,200px 200px;
+}
+.item,.nodeDot{position:absolute;transform-origin:center center;pointer-events:auto;user-select:none}
+.nodeDot{width:9px;height:9px;border-radius:50%;background:#000;transform:translate(-50%,-50%);z-index:5;pointer-events:none}
+.item svg{overflow:visible}
+.item text{font-size:12px;font-weight:800;fill:#334155;text-anchor:middle}
+.edgePreview{
+  position:fixed;width:12px;height:12px;border-radius:50%;background:rgba(37,99,235,.20);
+  border:2px solid var(--blue);transform:translate(-50%,-50%);pointer-events:none;z-index:9;
+}
+.bottombar{
+  position:fixed;left:0;right:0;bottom:0;height:58px;background:rgba(255,255,255,.95);
+  border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;gap:8px;padding:8px;z-index:20;
+  box-shadow:0 -4px 18px rgba(15,23,42,.08);
+}
+.bottomBtn{
+  min-width:96px;border:0;border-radius:14px;background:#e9eef4;color:#1f2937;font-weight:900;padding:10px 12px;
+}
+.bottomBtn.primary{background:var(--blue);color:#fff}
+.calcPanel{
+  position:fixed;left:0;right:0;bottom:58px;max-height:50vh;overflow:auto;background:#fff;border-top:1px solid var(--line);
+  box-shadow:0 -10px 30px rgba(15,23,42,.16);z-index:19;display:none;padding:14px;
+}
+.calcPanel.open{display:block}
+.calcInner{max-width:980px;margin:0 auto}
+.calcBox{border:1px solid var(--line);border-radius:16px;background:#f8fafc;padding:12px;margin:10px 0;line-height:1.55}
+.modalBackdrop{
+  position:fixed;inset:0;background:rgba(15,23,42,.32);display:none;align-items:center;justify-content:center;z-index:30;padding:16px;
+}
+.modal{width:min(430px,100%);background:#fff;border-radius:22px;box-shadow:var(--shadow);border:1px solid var(--line);padding:16px}
+.modal h2{margin:0 0 12px;font-size:20px}
+.field{margin:10px 0}
+label{display:block;font-size:13px;font-weight:800;color:var(--muted);margin-bottom:5px}
+input[type="text"],input[type="number"]{width:100%;border:1px solid var(--line);border-radius:13px;padding:11px 12px;font:inherit}
+.checkrow{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:14px;color:#334155}
+.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}
+button{
+  border:0;border-radius:13px;padding:10px 13px;font:inherit;font-weight:850;cursor:pointer;background:var(--blue);color:#fff;
+}
+button.secondary{background:#e9eef4;color:#1f2937}
+button.danger{background:var(--danger)}
+.toast{
+  position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:#17212b;color:#fff;
+  padding:10px 14px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:.2s;z-index:40;
+}
+.toast.show{opacity:1}
+@media(max-width:700px){
+  .topbar{height:78px;padding:8px}
+  .tool{width:64px;height:50px}
+  .tool svg{width:54px}
+  .help{display:none}
+  .boardWrap{top:78px}
+  .bottomBtn{min-width:72px;font-size:14px}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="toolsLeft">
+    <button class="tool" id="tool-wire" title="Vodič" onclick="toggleTool('wire')" aria-label="Vodič">
+      <svg viewBox="0 0 80 40"><line x1="12" y1="20" x2="68" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tool" id="tool-resistor" title="Rezistor" onclick="toggleTool('resistor')" aria-label="Rezistor">
+      <svg viewBox="0 0 80 40">
+        <line x1="8" y1="20" x2="24" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+        <rect x="24" y="11" width="32" height="18" rx="3" fill="none" stroke="#1f2937" stroke-width="4"/>
+        <line x1="56" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button class="tool" id="tool-capacitor" title="Kondenzátor" onclick="toggleTool('capacitor')" aria-label="Kondenzátor">
+      <svg viewBox="0 0 80 40">
+        <line x1="8" y1="20" x2="30" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+        <line x1="34" y1="8" x2="34" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+        <line x1="46" y1="8" x2="46" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+        <line x1="46" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+  <div class="help">Vyber prvek a klikni na stranu čtverce. Opětovným kliknutím nástroj zrušíš. Dlouhé podržení otevře úpravy.</div>
+  <div class="toolsRight">
+    <button class="tool" id="tool-source" title="Stejnosměrný zdroj" onclick="toggleTool('source')" aria-label="Stejnosměrný zdroj">
+      <svg viewBox="0 0 80 40">
+        <line x1="8" y1="20" x2="28" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+        <line x1="32" y1="13" x2="32" y2="27" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+        <line x1="42" y1="8" x2="42" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+        <line x1="42" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button class="tool eraser" id="tool-eraser" title="Guma" onclick="toggleTool('eraser')" aria-label="Guma">
+      <svg viewBox="0 0 80 40">
+        <path d="M25 28 L45 8 L62 25 L48 34 L31 34 Z" fill="#fee2e2" stroke="#991b1b" stroke-width="4" stroke-linejoin="round"/>
+        <line x1="42" y1="12" x2="58" y2="28" stroke="#991b1b" stroke-width="3"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="boardWrap" id="wrap">
+  <div class="board" id="board"></div>
+  <div class="edgePreview" id="edgePreview" style="display:none"></div>
+</div>
+
+<section class="calcPanel" id="calcPanel">
+  <div class="calcInner" id="calcContent"></div>
+</section>
+
+<nav class="bottombar">
+  <button class="bottomBtn" onclick="undoLast()">↶ Zpět</button>
+  <button class="bottomBtn primary" onclick="toggleCalculations()">Výpočty</button>
+  <button class="bottomBtn" onclick="generateRandom()">Generovat</button>
+  <button class="bottomBtn" onclick="exportImage()">📷</button>
+</nav>
+
+<div class="modalBackdrop" id="editModal">
+  <div class="modal">
+    <h2 id="modalTitle">Upravit prvek</h2>
+    <div class="field">
+      <label>Název</label>
+      <input id="editName" type="text" />
+      <label class="checkrow"><input id="showName" type="checkbox"> zobrazit název v plánku</label>
+    </div>
+    <div class="field" id="valueField">
+      <label id="editValueLabel">Hodnota</label>
+      <input id="editValue" type="number" step="0.1" />
+      <label class="checkrow"><input id="showValue" type="checkbox"> zobrazit hodnotu v plánku</label>
+    </div>
+    <div class="actions">
+      <button class="danger" onclick="deleteEditing()">Smazat</button>
+      <button class="secondary" onclick="closeModal()">Zrušit</button>
+      <button onclick="saveEditing()">Uložit změny</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GRID = 40;
+const HIT_TOL = 34; // větší tolerance kliknutí na hranu čtverce
+const RES_SPAN = 2; // rezistor zabírá dvě strany čtverce
+const board = document.getElementById('board');
+const wrap = document.getElementById('wrap');
+const preview = document.getElementById('edgePreview');
+
+let selectedTool = null;
+let historyStack = [];
+let suppressHistory = false;
+let items = [];
+let counters = {wire:1,resistor:1,capacitor:1,source:1};
+let pan = {x:-1200,y:-1200};
+let isPanning = false;
+let panStart = null;
+let editingId = null;
+let longPressTimer = null;
+let pointerDownOnItem = false;
+
+function setBoardTransform(){ board.style.transform = `translate(${pan.x}px, ${pan.y}px)`; }
+function saveHistory(){
+  if(suppressHistory) return;
+  historyStack.push(JSON.stringify({items,counters}));
+  if(historyStack.length>80) historyStack.shift();
+}
+function undoLast(){
+  const last = historyStack.pop();
+  if(!last){ toast('Není co vrátit.'); return; }
+  const s=JSON.parse(last);
+  items=s.items; counters=s.counters;
+  closeModal();
+  render();
+}
+
+function toggleTool(tool){
+  selectedTool = selectedTool === tool ? null : tool;
+  document.querySelectorAll('.tool').forEach(b=>b.classList.remove('selected'));
+  if(selectedTool) document.getElementById('tool-'+selectedTool).classList.add('selected');
+  preview.style.display = 'none';
+}
+
+function screenToBoard(clientX, clientY){
+  const r = wrap.getBoundingClientRect();
+  return {x: clientX - r.left - pan.x, y: clientY - r.top - pan.y};
+}
+
+function nearestEdgePoint(x,y){
+  const cellX = Math.floor(x/GRID);
+  const cellY = Math.floor(y/GRID);
+  const candidates = [];
+  for(let dx=-1; dx<=1; dx++){
+    for(let dy=-1; dy<=1; dy++){
+      const gx=cellX+dx, gy=cellY+dy;
+      candidates.push(
+        {x:gx*GRID + GRID/2, y:gy*GRID, dir:'h', a:`${gx},${gy}`, b:`${gx+1},${gy}`},
+        {x:gx*GRID + GRID/2, y:(gy+1)*GRID, dir:'h', a:`${gx},${gy+1}`, b:`${gx+1},${gy+1}`},
+        {x:gx*GRID, y:gy*GRID + GRID/2, dir:'v', a:`${gx},${gy}`, b:`${gx},${gy+1}`},
+        {x:(gx+1)*GRID, y:gy*GRID + GRID/2, dir:'v', a:`${gx+1},${gy}`, b:`${gx+1},${gy+1}`}
+      );
+    }
+  }
+  let best = candidates[0], bd = Infinity;
+  for(const c of candidates){
+    const d = Math.hypot(x-c.x, y-c.y);
+    if(d < bd){ bd=d; best=c; }
+  }
+  return {...best, dist:bd};
+}
+
+function addItem(type, edge, preset={}){
+  let value = preset.value ?? null;
+  let name = preset.name ?? '';
+
+  if(type === 'wire'){
+    name = name || 'V' + counters.wire++;
+  }
+
+  if(type === 'resistor'){
+    if(value == null){
+      const ans = prompt('Jaký odpor rezistoru chceš v ohmech?', '100');
+      if(ans === null) return;
+      value = Number(String(ans).replace(',','.'));
+    }
+    if(!isFinite(value) || value <= 0){ toast('Odpor musí být kladné číslo.'); return; }
+    name = name || 'R' + counters.resistor++;
+  }
+
+  if(type === 'capacitor'){
+    if(value == null){
+      const ans = prompt('Jakou kapacitu kondenzátoru chceš v mikrofaradech?', '10');
+      if(ans === null) return;
+      value = Number(String(ans).replace(',','.')) * 1e-6;
+    }
+    if(!isFinite(value) || value <= 0){ toast('Kapacita musí být kladné číslo.'); return; }
+    name = name || 'C' + counters.capacitor++;
+  }
+
+  if(type === 'source'){
+    if(value == null){
+      const ans = prompt('Jaké napětí zdroje chceš ve voltech?', '12');
+      if(ans === null) return;
+      value = Number(String(ans).replace(',','.'));
+    }
+    if(!isFinite(value)){ toast('Napětí musí být číslo.'); return; }
+    name = name || 'U' + counters.source++;
+  }
+
+  saveHistory();
+  items.push({
+    id: makeId(), type, name, value,
+    x: type==='resistor'
+      ? (edge.dir==='h' ? (parseNode(edge.a).x + 1)*GRID : parseNode(edge.a).x*GRID)
+      : edge.x,
+    y: type==='resistor'
+      ? (edge.dir==='h' ? parseNode(edge.a).y*GRID : (parseNode(edge.a).y + 1)*GRID)
+      : edge.y,
+    dir: edge.dir,
+    showName: type !== 'wire',
+    showValue: type !== 'wire',
+    a: edge.a,
+    b: type==='resistor' ? spanEnd(edge.a, edge.dir, RES_SPAN) : edge.b
+  });
+  render();
+}
+
+function makeId(){ return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()+Math.random()); }
+function parseNode(k){ const [x,y]=k.split(',').map(Number); return {x,y}; }
+function spanEnd(a,dir,span){
+  const p=parseNode(a);
+  return dir==='h' ? `${p.x+span},${p.y}` : `${p.x},${p.y+span}`;
+}
+
+function priority(it){
+  if(it.type==='wire') return 0;
+  if(it.type==='source' || it.type==='resistor' || it.type==='capacitor') return 2;
+  return 1;
+}
+function render(){
+  board.innerHTML = '';
+  const nodes = getVisibleNodes();
+
+  for(const item of [...items].sort((a,b)=>priority(a)-priority(b))){
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.dataset.id = item.id;
+    const span = item.type === 'resistor' ? RES_SPAN : 1;
+    if(item.dir === 'h'){
+      el.style.left = (item.x - (span*GRID)/2) + 'px';
+      el.style.top = (item.y - GRID/2) + 'px';
+      el.style.width = (span*GRID) + 'px';
+      el.style.height = GRID + 'px';
+    }else{
+      el.style.left = (item.x - GRID/2) + 'px';
+      el.style.top = (item.y - (span*GRID)/2) + 'px';
+      el.style.width = GRID + 'px';
+      el.style.height = (span*GRID) + 'px';
+    }
+
+    if(item.type === 'wire') el.innerHTML = wireSvg(item);
+    if(item.type === 'resistor') el.innerHTML = resistorSvg(item);
+    if(item.type === 'source') el.innerHTML = sourceSvg(item);
+    if(item.type === 'capacitor') el.innerHTML = capacitorSvg(item);
+
+    el.addEventListener('pointerdown', () => {
+      pointerDownOnItem = true;
+      clearTimeout(longPressTimer);
+      longPressTimer = setTimeout(() => openEdit(item.id), 550);
+    });
+    el.addEventListener('pointerup', () => {
+      clearTimeout(longPressTimer);
+      setTimeout(()=>pointerDownOnItem=false,0);
+    });
+    el.addEventListener('pointercancel', () => {
+      clearTimeout(longPressTimer);
+      pointerDownOnItem=false;
+    });
+    board.appendChild(el);
+  }
+
+  for(const key of nodes){
+    const [gx,gy] = key.split(',').map(Number);
+    const d = document.createElement('div');
+    d.className = 'nodeDot';
+    d.style.left = (gx*GRID) + 'px';
+    d.style.top = (gy*GRID) + 'px';
+    board.appendChild(d);
+  }
+
+  if(document.getElementById('calcPanel').classList.contains('open')) updateCalculations();
+}
+
+function commonSvgWrap(inner, item){
+  const rot = item.dir === 'v' ? 'rotate(90 20 20)' : '';
+  const size = item.type === 'resistor' ? 112 : 72;
+  const left = item.type === 'resistor' ? -16 : -16;
+  const view = item.type === 'resistor' ? '-16 -16 112 72' : '-16 -16 72 72';
+  return `<svg viewBox="${view}" width="${size}" height="72" style="position:absolute;left:${left}px;top:-16px"><g transform="${rot}">${inner}</g></svg>`;
+}
+
+function itemLabelSvg(item, unit){
+  const center = item.type === 'resistor' ? 40 : 20;
+  const lines=[];
+  if(item.showName) lines.push(escapeHtml(item.name));
+  if(item.showValue && item.type !== 'wire') lines.push(formatComponentValue(item, unit));
+  if(lines.length===0) return '';
+  if(lines.length===1) return `<text x="${center}" y="8">${lines[0]}</text>`;
+  return `<text x="${center}" y="4">${lines[0]}</text><text x="${center}" y="40">${lines[1]}</text>`;
+}
+
+function wireSvg(item){
+  return commonSvgWrap(`<line x1="0" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>`, item);
+}
+function resistorSvg(item){
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="14" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <rect x="14" y="10" width="52" height="20" rx="4" fill="#fff7ed" stroke="#1f2937" stroke-width="3"/>
+    <line x1="66" y1="20" x2="80" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    ${itemLabelSvg(item,'Ω')}
+  `, item);
+}
+function capacitorSvg(item){
+  const lines=[];
+  if(item.showName) lines.push(escapeHtml(item.name));
+  if(item.showValue) lines.push(formatComponentValue(item,'F'));
+  const label = lines.length===0 ? '' :
+    lines.length===1 ? `<text x="20" y="8">${lines[0]}</text>` :
+    `<text x="20" y="6">${lines[0]}</text><text x="20" y="40">${lines[1]}</text>`;
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="13" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="16" y1="8" x2="16" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="25" y1="8" x2="25" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="25" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    ${label}
+  `, item);
+}
+function sourceSvg(item){
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="13" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="16" y1="14" x2="16" y2="26" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="25" y1="8" x2="25" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="25" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    ${itemLabelSvg(item,'V')}
+  `, item);
+}
+
+function getVisibleNodes(){
+  const counts = {};
+  for(const it of items){
+    counts[it.a]=(counts[it.a]||0)+1;
+    counts[it.b]=(counts[it.b]||0)+1;
+  }
+  return Object.keys(counts).filter(k=>counts[k]>=3);
+}
+
+function formatValue(v){ return Number(v).toLocaleString('cs-CZ',{maximumFractionDigits:2}); }
+function engineering(value, unit){
+  const prefixes = [
+    {p:'G',f:1e9},{p:'M',f:1e6},{p:'k',f:1e3},{p:'',f:1},
+    {p:'m',f:1e-3},{p:'µ',f:1e-6},{p:'n',f:1e-9},{p:'p',f:1e-12}
+  ];
+  const abs = Math.abs(Number(value));
+  if(abs===0) return '0 ' + unit;
+  let best = prefixes[prefixes.length-1];
+  for(const pr of prefixes){
+    const scaled = abs/pr.f;
+    if(scaled >= 1 && scaled < 1000){ best = pr; break; }
+  }
+  return (Number(value)/best.f).toLocaleString('cs-CZ',{maximumFractionDigits:2}) + ' ' + best.p + unit;
+}
+function formatComponentValue(item, unit){
+  if(item.type === 'resistor') return engineering(item.value,'Ω');
+  if(item.type === 'capacitor') return engineering(item.value,'F');
+  if(item.type === 'source') return engineering(item.value,'V');
+  return formatValue(item.value) + ' ' + unit;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+wrap.addEventListener('pointermove', e => {
+  if(selectedTool && selectedTool !== 'eraser' && !isPanning){
+    preview.style.display = 'block';
+    preview.style.left = e.clientX + 'px';
+    preview.style.top = e.clientY + 'px';
+  }
+  if(isPanning && !selectedTool){
+    pan.x = e.clientX - panStart.dx;
+    pan.y = e.clientY - panStart.dy;
+    setBoardTransform();
+  }
+});
+
+wrap.addEventListener('pointerdown', e => {
+  if(selectedTool) return;
+  isPanning = true;
+  panStart = {dx:e.clientX-pan.x, dy:e.clientY-pan.y};
+  wrap.setPointerCapture(e.pointerId);
+});
+
+wrap.addEventListener('pointerup', () => { if(isPanning) isPanning = false; });
+
+wrap.addEventListener('click', e => {
+  const targetItem = e.target.closest?.('.item');
+  if(selectedTool === 'eraser'){
+    if(targetItem){
+      const id = targetItem.dataset.id;
+      saveHistory();
+      items = items.filter(i=>i.id!==id);
+      render();
+    }
+    return;
+  }
+
+  if(pointerDownOnItem) return;
+  if(!selectedTool) return;
+
+  const p = screenToBoard(e.clientX,e.clientY);
+  const edge = nearestEdgePoint(p.x,p.y);
+  if(edge.dist > HIT_TOL){
+    toast('Klikni přímo na stranu čtverce v síti.');
+    return;
+  }
+  if(!canPlaceEdge(selectedTool, edge)){
+    toast('Tahle hrana už je obsazená.');
+    return;
+  }
+  addItem(selectedTool, edge);
+});
+
+function openEdit(id){
+  if(selectedTool === 'eraser') return;
+  editingId = id;
+  const item = items.find(i=>i.id===id);
+  if(!item) return;
+
+  document.getElementById('modalTitle').textContent =
+    item.type === 'wire' ? 'Upravit vodič' :
+    item.type === 'resistor' ? 'Upravit rezistor' : item.type === 'capacitor' ? 'Upravit kondenzátor' : 'Upravit zdroj';
+
+  document.getElementById('editName').value = item.name;
+  document.getElementById('showName').checked = !!item.showName;
+  const vf = document.getElementById('valueField');
+
+  if(item.type === 'wire'){
+    vf.style.display = 'none';
+    document.getElementById('showName').parentElement.style.display = 'none';
+  }else{
+    vf.style.display = 'block';
+    document.getElementById('showName').parentElement.style.display = 'flex';
+    document.getElementById('editValueLabel').textContent =
+      item.type === 'resistor' ? 'Odpor v ohmech' : item.type === 'capacitor' ? 'Kapacita v mikrofaradech' : 'Napětí ve voltech';
+    document.getElementById('editValue').value = item.type==='capacitor' ? item.value*1e6 : item.value;
+    document.getElementById('showValue').checked = !!item.showValue;
+  }
+
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeModal(){
+  editingId = null;
+  document.getElementById('editModal').style.display = 'none';
+}
+
+function saveEditing(){
+  const item = items.find(i=>i.id===editingId);
+  if(!item) return;
+  const newName = document.getElementById('editName').value.trim();
+  if(!newName){ toast('Název nesmí být prázdný.'); return; }
+  saveHistory();
+  item.name = newName;
+
+  if(item.type !== 'wire'){
+    let v = Number(String(document.getElementById('editValue').value).replace(',','.'));
+    if(item.type==='capacitor') v = v*1e-6;
+    if(!isFinite(v) || ((item.type==='resistor'||item.type==='capacitor') && v<=0)){
+      toast(item.type==='resistor' ? 'Odpor musí být kladné číslo.' : item.type==='capacitor' ? 'Kapacita musí být kladné číslo.' : 'Napětí musí být číslo.');
+      return;
+    }
+    item.value = v;
+    item.showName = document.getElementById('showName').checked;
+    item.showValue = document.getElementById('showValue').checked;
+  }
+
+  closeModal();
+  render();
+}
+
+function deleteEditing(){
+  saveHistory();
+  items = items.filter(i=>i.id!==editingId);
+  closeModal();
+  render();
+}
+
+document.getElementById('editModal').addEventListener('click', e=>{ if(e.target.id==='editModal') closeModal(); });
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+/* ---------- výpočty ---------- */
+
+function toggleCalculations(){
+  const panel = document.getElementById('calcPanel');
+  panel.classList.toggle('open');
+  if(panel.classList.contains('open')) updateCalculations();
+}
+
+function updateCalculations(){
+  const c = analyzeCircuit();
+  const box = document.getElementById('calcContent');
+
+  if(c.error){
+    box.innerHTML = `<h2>Vzorový výpočet</h2><div class="calcBox">${c.error}</div>`;
+    typeset();
+    return;
+  }
+
+  if(c.kind === 'R'){
+    const parts = c.resistors.map(r=>`
+      <tr><td>${escapeHtml(r.name)}</td><td>\\(${fmtMath(r.r)}\\,\\Omega\\)</td><td>\\(${fmtMath(r.u)}\\,\\mathrm{V}\\)</td><td>\\(${fmtMath(r.i)}\\,\\mathrm{A}\\)</td></tr>
+    `).join('');
+
+    box.innerHTML = `
+      <h2>Vzorový výpočet rezistorového obvodu</h2>
+      <div class="calcBox"><b>Shrnutí:</b><br>
+        \\(U = ${fmtMath(c.U)}\\,\\mathrm{V}\\)<br>
+        \\(R_\\mathrm{celk} = ${fmtMath(c.R)}\\,\\Omega\\)<br>
+        \\(I_\\mathrm{celk} = ${fmtMath(c.I)}\\,\\mathrm{A}\\)
+      </div>
+      <div class="calcBox"><b>Jak jsou prvky zapojené a jak se počítá odpor</b><br>${c.method}</div>
+      <div class="calcBox"><b>Celkový proud</b>
+        \\[
+          I = \\frac{U}{R} = \\frac{${fmtMath(c.U)}}{${fmtMath(c.R)}} = ${fmtMath(c.I)}\\,\\mathrm{A}
+        \\]
+      </div>
+      <div class="calcBox"><b>Jednotlivé rezistory</b>
+        <table style="width:100%;border-collapse:collapse;margin-top:8px">
+          <tr><th align="left">Rezistor</th><th align="left">R</th><th align="left">U</th><th align="left">I</th></tr>${parts}
+        </table>
+      </div>`;
+  } else {
+    const parts = c.capacitors.map(k=>`
+      <tr><td>${escapeHtml(k.name)}</td><td>\\(${fmtMath(k.c)}\\,\\mathrm{F}\\)</td><td>\\(${fmtMath(k.u)}\\,\\mathrm{V}\\)</td><td>\\(${fmtMath(k.q)}\\,\\mathrm{C}\\)</td></tr>
+    `).join('');
+
+    box.innerHTML = `
+      <h2>Vzorový výpočet kapacitního obvodu</h2>
+      <div class="calcBox"><b>Shrnutí:</b><br>
+        \\(U = ${fmtMath(c.U)}\\,\\mathrm{V}\\)<br>
+        \\(C_\\mathrm{celk} = ${fmtMath(c.C)}\\,\\mathrm{F}\\)<br>
+        \\(Q_\\mathrm{celk} = ${fmtMath(c.Q)}\\,\\mathrm{C}\\)
+      </div>
+      <div class="calcBox"><b>Jak jsou prvky zapojené a jak se počítá kapacita</b><br>${c.method}</div>
+      <div class="calcBox"><b>Celkový náboj</b>
+        \\[
+          Q = C\\cdot U = ${fmtMath(c.C)}\\cdot ${fmtMath(c.U)} = ${fmtMath(c.Q)}\\,\\mathrm{C}
+        \\]
+      </div>
+      <div class="calcBox"><b>Jednotlivé kondenzátory</b>
+        <table style="width:100%;border-collapse:collapse;margin-top:8px">
+          <tr><th align="left">Kondenzátor</th><th align="left">C</th><th align="left">U</th><th align="left">Q</th></tr>${parts}
+        </table>
+      </div>`;
+  }
+  typeset();
+}
+
+function analyzeCircuit(){
+  const sources = items.filter(i=>i.type==='source');
+  const resistors = items.filter(i=>i.type==='resistor');
+  const capacitors = items.filter(i=>i.type==='capacitor');
+
+  if(sources.length !== 1) return {error:'Pro výpočet musí být v plánku právě jeden stejnosměrný zdroj.'};
+  if(resistors.length && capacitors.length) return {error:'V jednom výpočtu zatím použij buď pouze rezistory, nebo pouze kondenzátory.'};
+  if(!resistors.length && !capacitors.length) return {error:'V plánku není žádný rezistor ani kondenzátor.'};
+
+  return resistors.length ? analyzeResistorCircuit(sources[0], resistors) : analyzeCapacitorCircuit(sources[0], capacitors);
+}
+
+function analyzeResistorCircuit(src, resistors){
+  const net = makeElectricalGraph();
+  const plus = net.nodeOf(src.b), minus = net.nodeOf(src.a);
+  if(plus === minus) return {error:'Zdroj je zkratovaný vodiči. Výpočet by v ideálním případě vedl k nekonečnému proudu.'};
+
+  const edges = resistors.map(r=>({
+    id:r.id, name:r.name, r:r.value,
+    a:net.nodeOf(r.a), b:net.nodeOf(r.b)
+  })).filter(e=>e.a!==e.b);
+
+  const solved = solveEquivalentNetwork(edges, plus, minus, Math.abs(src.value), e=>1/e.r);
+  if(solved.error) return {error:solved.error};
+
+  let Itotal = 0;
+  for(const e of edges){
+    const Ue = solved.V[e.a]-solved.V[e.b];
+    const Ie = Ue/e.r;
+    e.u = Math.abs(Ue);
+    e.i = Math.abs(Ie);
+    if(e.a === plus) Itotal += Ie;
+    if(e.b === plus) Itotal -= Ie;
+  }
+  Itotal = Math.abs(Itotal);
+  if(!isFinite(Itotal) || Itotal <= 1e-12) return {error:'Mezi svorkami zdroje není uzavřený odporový obvod.'};
+
+  const Rtotal = Math.abs(src.value) / Itotal;
+  return {kind:'R', U:Math.abs(src.value), R:Rtotal, I:Itotal, resistors:edges, method:makeResistanceMethod(edges,Rtotal)};
+}
+
+function analyzeCapacitorCircuit(src, capacitors){
+  const net = makeElectricalGraph();
+  const plus = net.nodeOf(src.b), minus = net.nodeOf(src.a);
+  if(plus === minus) return {error:'Zdroj je zkratovaný vodiči.'};
+
+  const edges = capacitors.map(c=>({
+    id:c.id, name:c.name, c:c.value,
+    a:net.nodeOf(c.a), b:net.nodeOf(c.b)
+  })).filter(e=>e.a!==e.b);
+
+  const solved = solveEquivalentNetwork(edges, plus, minus, Math.abs(src.value), e=>e.c);
+  if(solved.error) return {error:solved.error};
+
+  let Qtotal = 0;
+  for(const e of edges){
+    const Ue = solved.V[e.a]-solved.V[e.b];
+    const Qe = e.c * Ue;
+    e.u = Math.abs(Ue);
+    e.q = Math.abs(Qe);
+    if(e.a === plus) Qtotal += Qe;
+    if(e.b === plus) Qtotal -= Qe;
+  }
+  Qtotal = Math.abs(Qtotal);
+  if(!isFinite(Qtotal) || Qtotal <= 1e-18) return {error:'Mezi svorkami zdroje není uzavřený kapacitní obvod.'};
+
+  const Ctotal = Qtotal / Math.abs(src.value);
+  return {kind:'C', U:Math.abs(src.value), C:Ctotal, Q:Qtotal, capacitors:edges, method:makeCapacitanceMethod(edges,Ctotal)};
+}
+
+function makeElectricalGraph(){
+  // 1) všechny hrany vodičů se spojí do ideálních uzlů
+  // 2) rezistor/kondenzátor/zdroj tvoří prvek mezi dvěma uzly, ale jeho vlastní hrana uzly nespojuje
+  const parent = {};
+  function add(x){ if(!(x in parent)) parent[x]=x; }
+  function find(x){ add(x); return parent[x]===x ? x : parent[x]=find(parent[x]); }
+  function union(a,b){ a=find(a); b=find(b); if(a!==b) parent[b]=a; }
+
+  for(const it of items){ add(it.a); add(it.b); }
+  for(const w of items.filter(i=>i.type==='wire')) union(w.a,w.b);
+
+  // normalize names to compact stable node ids
+  const map = new Map(); let n=1;
+  function nodeOf(point){
+    const r=find(point);
+    if(!map.has(r)) map.set(r,'N'+(n++));
+    return map.get(r);
+  }
+  return {nodeOf};
+}
+
+function solveEquivalentNetwork(edges, plus, minus, sourceValue, admittanceFn){
+  const allNodes = [...new Set(edges.flatMap(e=>[e.a,e.b]).concat([plus,minus]))];
+
+  // odstranění plovoucích částí, které nejsou napojené mezi svorky zdroje
+  const graph = {};
+  for(const n of allNodes) graph[n]=new Set();
+  for(const e of edges){ graph[e.a].add(e.b); graph[e.b].add(e.a); }
+  const reachable = new Set([plus]);
+  const stack=[plus];
+  while(stack.length){
+    const n=stack.pop();
+    for(const m of graph[n]||[]){
+      if(!reachable.has(m)){ reachable.add(m); stack.push(m); }
+    }
+  }
+  if(!reachable.has(minus)) return {error:'Mezi svorkami zdroje není uzavřená cesta přes součástky.'};
+
+  edges = edges.filter(e=>reachable.has(e.a)&&reachable.has(e.b));
+  const nodes = [...new Set(edges.flatMap(e=>[e.a,e.b]).concat([plus,minus]))];
+  const unknown = nodes.filter(n=>n!==plus && n!==minus);
+  const V = {}; V[plus]=sourceValue; V[minus]=0;
+  const idx = Object.fromEntries(unknown.map((n,i)=>[n,i]));
+  const A = unknown.map(()=>unknown.map(()=>0));
+  const b = unknown.map(()=>0);
+
+  for(const e of edges){
+    const y = admittanceFn(e);
+    if(!isFinite(y) || y<=0) continue;
+    for(const [n,m] of [[e.a,e.b],[e.b,e.a]]){
+      if(n in idx){
+        A[idx[n]][idx[n]] += y;
+        if(m in idx) A[idx[n]][idx[m]] -= y;
+        else b[idx[n]] += y*V[m];
+      }
+    }
+  }
+
+  const sol = gauss(A,b);
+  if(!sol) return {error:'Obvod má plovoucí uzel nebo nejednoznačné zapojení. Zkontroluj propojení vodičů.'};
+  unknown.forEach((n,i)=>V[n]=sol[i]);
+  return {V, edges};
+}
+
+function buildUnionFind(){
+  const parent = {};
+  function add(x){ if(!(x in parent)) parent[x]=x; }
+  function find(x){ add(x); return parent[x]===x ? x : parent[x]=find(parent[x]); }
+  function union(a,b){ a=find(a); b=find(b); if(a!==b) parent[b]=a; }
+  items.forEach(i=>{add(i.a);add(i.b);});
+  items.filter(i=>i.type==='wire').forEach(w=>union(w.a,w.b));
+  return {find,union,parent};
+}
+
+function makeResistanceMethod(edges,Rtotal){
+  if(edges.length === 1){
+    return `Je zapojený jeden rezistor, proto \\[R = R_1 = ${fmtMath(Rtotal)}\\,\\Omega.\\]`;
+  }
+  const names = edges.map(e=>`${escapeHtml(e.name)} = ${fmtMath(e.r)}\\,\\Omega`).join(', ');
+  return `
+    Obecný obvod je spočítán metodou uzlových napětí. Pro výuku platí vztah:
+    \\[
+      R = \\frac{U}{I}.
+    \\]
+    Z rezistorů ${names} vyjde po spočítání proudu zdrojem:
+    \\[
+      R = ${fmtMath(Rtotal)}\\,\\Omega.
+    \\]
+  `;
+}
+
+function makeCapacitanceMethod(edges,Ctotal){
+  if(edges.length === 1){
+    return `Je zapojený jeden kondenzátor, proto \\[C = C_1 = ${fmtMath(Ctotal)}\\,\\mathrm{F}.\\]`;
+  }
+  const allSameEnds = edges.every(e =>
+    (e.a===edges[0].a && e.b===edges[0].b) || (e.a===edges[0].b && e.b===edges[0].a)
+  );
+  const deg = {};
+  edges.forEach(e=>{deg[e.a]=(deg[e.a]||0)+1; deg[e.b]=(deg[e.b]||0)+1;});
+
+  if(allSameEnds){
+    const terms = edges.map(e=>`${fmtMath(e.c)}`).join(' + ');
+    return `
+      Kondenzátory jsou připojené mezi stejné dva uzly, tedy jsou zapojeny <b>paralelně</b>.
+      \\[
+        C = C_1 + C_2 + \\dots
+      \\]
+      \\[
+        C = ${terms} = ${fmtMath(Ctotal)}\\,\\mathrm{F}
+      \\]
+    `;
+  }
+
+  const innerNodes = Object.keys(deg).filter(k=>deg[k]===2).length;
+  const endNodes = Object.keys(deg).filter(k=>deg[k]===1).length;
+  if(endNodes===2 && innerNodes===edges.length-1){
+    const terms = edges.map(e=>`\\frac{1}{${fmtMath(e.c)}}`).join(' + ');
+    return `
+      Kondenzátory tvoří jednu cestu bez větvení, tedy jsou zapojeny <b>sériově</b>.
+      \\[
+        \\frac{1}{C}=\\frac{1}{C_1}+\\frac{1}{C_2}+\\dots
+      \\]
+      \\[
+        \\frac{1}{C}= ${terms}
+      \\]
+      \\[
+        C = ${fmtMath(Ctotal)}\\,\\mathrm{F}
+      \\]
+    `;
+  }
+
+  return `
+    Zapojení je obecná kapacitní síť. Aplikace počítá uzlová napětí stejným typem rovnic jako u rezistorů,
+    jen místo vodivosti \\(1/R\\) používá kapacitu \\(C\\):
+    \\[
+      Q = C\\cdot U
+    \\]
+    a v každém vnitřním uzlu platí součet nábojů \\(0\\). Potom:
+    \\[
+      C_\\mathrm{celk}=\\frac{Q}{U} = ${fmtMath(Ctotal)}\\,\\mathrm{F}.
+    \\]
+  `;
+}
+
+function gauss(A,b){
+  const n=A.length;
+  if(n===0) return [];
+  A=A.map((r,i)=>r.concat([b[i]]));
+  for(let i=0;i<n;i++){
+    let max=i;
+    for(let k=i+1;k<n;k++) if(Math.abs(A[k][i])>Math.abs(A[max][i])) max=k;
+    if(Math.abs(A[max][i])<1e-12) return null;
+    [A[i],A[max]]=[A[max],A[i]];
+    const div=A[i][i];
+    for(let j=i;j<=n;j++) A[i][j]/=div;
+    for(let k=0;k<n;k++){
+      if(k===i) continue;
+      const f=A[k][i];
+      for(let j=i;j<=n;j++) A[k][j]-=f*A[i][j];
+    }
+  }
+  return A.map(r=>r[n]);
+}
+
+function fmtMath(x){
+  return Number(x).toLocaleString('cs-CZ',{maximumFractionDigits:3}).replaceAll(' ','\\,');
+}
+function typeset(){
+  if(window.MathJax?.typesetPromise) MathJax.typesetPromise([document.getElementById('calcContent')]);
+}
+
+/* ---------- generátor ---------- */
+
+function generateRandom(){
+  const typeAns = prompt('Co chceš generovat? Napiš R pro rezistory nebo C pro kondenzátory.', 'R');
+  if(typeAns === null) return;
+  const kindPart = String(typeAns).trim().toUpperCase().startsWith('C') ? 'capacitor' : 'resistor';
+
+  const ans = prompt(kindPart==='resistor' ? 'Kolik rezistorů chceš použít?' : 'Kolik kondenzátorů chceš použít?', '3');
+  if(ans === null) return;
+  const n = Math.max(1, Math.min(8, Math.floor(Number(ans))));
+  if(!isFinite(n)){ toast('Zadej počet prvků.'); return; }
+
+  saveHistory();
+  suppressHistory = true;
+  items = [];
+  counters = {wire:1,resistor:1,capacitor:1,source:1};
+
+  const sx = 30, sy = 26;
+  const mode = (n < 3 || Math.random() < 0.55) ? 'series' : 'parallel';
+  const val = () => kindPart==='resistor' ? randR() : randC();
+
+  if(mode === 'series'){
+    addSilent('source', sx, sy+3, 'v', 12);
+    addColumnWire(sx, sy, sy+3);
+    addColumnWire(sx, sy+4, sy+6);
+
+    for(let i=0;i<n;i++){
+      const gx = sx + 1 + i*2;
+      addSilent(kindPart, gx, sy, 'h', val());
+    }
+    // vodivé mezery mezi prvky, nikdy ne pod prvkem
+    addSilent('wire', sx, sy, 'h');
+    for(let i=1;i<n;i++){
+      const gx = sx + i*2 + 1;
+      addSilent('wire', gx, sy, 'h');
+    }
+    const rightX = sx + n*2 + 1;
+    addColumnWire(rightX, sy, sy+6);
+    for(let gx=sx; gx<rightX; gx++) addSilent('wire', gx, sy+6, 'h');
+  } else {
+    const left = sx+1, right = sx+7;
+    addSilent('source', sx, sy+2, 'v', 12);
+    addSilent('wire', sx, sy+1, 'v');
+    addSilent('wire', sx, sy+3, 'v');
+    addSilent('wire', sx, sy+1, 'h');
+    addSilent('wire', sx, sy+4, 'h');
+    addColumnWire(left, sy, sy+(n-1)*2);
+    addColumnWire(right, sy, sy+(n-1)*2);
+
+    for(let j=0;j<n;j++){
+      const y = sy + j*2;
+      addSilent('wire', left, y, 'h');
+      addSilent(kindPart, left+1, y, 'h', val());
+      const after = kindPart==='resistor' ? left+3 : left+2;
+      for(let gx=after; gx<right; gx++) addSilent('wire', gx, y, 'h');
+    }
+    const bottom = sy+(n-1)*2;
+    addColumnWire(right, bottom, sy+4);
+    for(let gx=sx; gx<right; gx++) addSilent('wire', gx, sy+4, 'h');
+  }
+
+  suppressHistory = false;
+  render();
+  toast('Vygenerováno.');
+}
+
+function occupiedEdges(){
+  const s = new Set();
+  for(const it of items){
+    s.add(edgeKey(it.a,it.b));
+    if(it.type==='resistor'){
+      const a=parseNode(it.a), b=parseNode(it.b);
+      if(a.y===b.y){
+        for(let x=Math.min(a.x,b.x); x<Math.max(a.x,b.x); x++) s.add(edgeKey(`${x},${a.y}`,`${x+1},${a.y}`));
+      }else{
+        for(let y=Math.min(a.y,b.y); y<Math.max(a.y,b.y); y++) s.add(edgeKey(`${a.x},${y}`,`${a.x},${y+1}`));
+      }
+    }
+  }
+  return s;
+}
+function edgeKey(a,b){ return [a,b].sort().join('|'); }
+function canPlaceEdge(type, edge){
+  const occ = occupiedEdges();
+  if(type==='resistor'){
+    const end = spanEnd(edge.a, edge.dir, RES_SPAN);
+    const a=parseNode(edge.a), b=parseNode(end);
+    if(edge.dir==='h'){
+      for(let x=a.x; x<b.x; x++) if(occ.has(edgeKey(`${x},${a.y}`,`${x+1},${a.y}`))) return false;
+    }else{
+      for(let y=a.y; y<b.y; y++) if(occ.has(edgeKey(`${a.x},${y}`,`${a.x},${y+1}`))) return false;
+    }
+    return true;
+  }
+  return !occ.has(edgeKey(edge.a, edge.b));
+}
+
+function addSilent(type,gx,gy,dir,value){
+  const edge = dir==='h'
+    ? {x:gx*GRID+GRID/2,y:gy*GRID,dir:'h',a:`${gx},${gy}`,b:`${gx+1},${gy}`}
+    : {x:gx*GRID,y:gy*GRID+GRID/2,dir:'v',a:`${gx},${gy}`,b:`${gx},${gy+1}`};
+  if(!canPlaceEdge(type, edge)) return false;
+  addItem(type,edge,{value});
+  return true;
+}
+function addColumnWire(gx,y1,y2){
+  for(let y=y1;y<y2;y++) addSilent('wire',gx,y,'v');
+}
+function randR(){
+  const table=[1,2,3,4,5,6,8,10,15,20,25,30,40,50,60,75,80,100,150,200,250,300,470,500,680,750,820,999];
+  return table[Math.floor(Math.random()*table.length)];
+}
+function randC(){
+  // zadává se prakticky v mikrofaradech, v programu se ukládá ve faradech
+  const uf=[1,2,3,4.7,5,6.8,10,15,20,22,33,47,68,100,220,330,470,680,999];
+  return uf[Math.floor(Math.random()*uf.length)]*1e-6;
+}
+
+/* ---------- export ---------- */
+
+function exportImage(){
+  if(items.length===0){ toast('V plánku nic není.'); return; }
+
+  const pad = 40;
+  const minX = Math.min(...items.map(i=>i.x)) - 60;
+  const minY = Math.min(...items.map(i=>i.y)) - 60;
+  const maxX = Math.max(...items.map(i=>i.x)) + 60;
+  const maxY = Math.max(...items.map(i=>i.y)) + 60;
+  const w = maxX-minX+pad*2;
+  const h = maxY-minY+pad*2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(120, Math.ceil(w*2));
+  canvas.height = Math.max(120, Math.ceil(h*2));
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2,2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,w,h);
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  ctx.font='bold 12px system-ui, Arial';
+  ctx.textAlign='center';
+  ctx.fillStyle='#334155';
+
+  const tx = x => x-minX+pad;
+  const ty = y => y-minY+pad;
+
+  for(const it of items) drawCanvasItem(ctx,it,tx(it.x),ty(it.y));
+  for(const key of getVisibleNodes()){
+    const [gx,gy]=key.split(',').map(Number);
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.arc(tx(gx*GRID),ty(gy*GRID),4.5,0,Math.PI*2); ctx.fill();
+  }
+
+  const a=document.createElement('a');
+  a.download='planek-obvodu.png';
+  a.href=canvas.toDataURL('image/png');
+  a.click();
+}
+
+function drawCanvasItem(ctx,it,x,y){
+  ctx.save();
+  ctx.translate(x,y);
+  if(it.dir==='v') ctx.rotate(Math.PI/2);
+  ctx.strokeStyle='#1f2937';
+  ctx.fillStyle='#334155';
+  ctx.lineWidth=4;
+
+  if(it.type==='wire'){
+    ctx.beginPath(); ctx.moveTo(-20,0); ctx.lineTo(20,0); ctx.stroke();
+  } else if(it.type==='resistor'){
+    ctx.lineWidth=4;
+    ctx.beginPath(); ctx.moveTo(-40,0); ctx.lineTo(-26,0); ctx.stroke();
+    ctx.strokeRect(-26,-10,52,20);
+    ctx.beginPath(); ctx.moveTo(26,0); ctx.lineTo(40,0); ctx.stroke();
+    drawCanvasLabels(ctx,it,'Ω');
+  } else if(it.type==='capacitor'){
+    ctx.lineWidth=4;
+    ctx.beginPath(); ctx.moveTo(-20,0); ctx.lineTo(-7,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-4,-12); ctx.lineTo(-4,12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(5,-12); ctx.lineTo(5,12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(20,0); ctx.stroke();
+    drawCanvasLabels(ctx,it,'F');
+  } else if(it.type==='source'){
+    ctx.lineWidth=4;
+    ctx.beginPath(); ctx.moveTo(-20,0); ctx.lineTo(-7,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-4,-6); ctx.lineTo(-4,6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(5,-12); ctx.lineTo(5,12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(20,0); ctx.stroke();
+    drawCanvasLabels(ctx,it,'V');
+  }
+  ctx.restore();
+}
+
+function drawCanvasLabels(ctx,it,unit){
+  ctx.save();
+  ctx.fillStyle='#334155';
+  ctx.font='bold 12px system-ui, Arial';
+  ctx.textAlign='center';
+  const top = it.type==='capacitor' ? -16 : -16;
+  const bottom = it.type==='capacitor' ? 27 : 27;
+  if(it.showName) ctx.fillText(it.name,0,top);
+  if(it.showValue) ctx.fillText(formatComponentValue(it,unit),0,bottom);
+  ctx.restore();
+}
+
+setBoardTransform();
+render();
+</script>
+</body>
+</html>
