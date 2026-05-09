@@ -667,7 +667,12 @@ function updateCalculations(){
     `).join('') : '';
 
     const summary = c.kind === 'R_MULTI'
-      ? `<b>Shrnutí:</b><br>Obvod obsahuje více zdrojů. Proto nemá jeden jednoduchý „celkový odpor zdroje“. Počítají se uzlová napětí, proudy rezistory a proudy jednotlivými zdroji.`
+      ? (c.sources && c.sources.length === 1 && c.R !== undefined
+          ? `<b>Shrnutí:</b><br>
+             \\(U = ${fmtMath(c.U)}\\,\\mathrm{V}\\)<br>
+             \\(R_\\mathrm{celk} = ${fmtMath(c.R)}\\,\\Omega\\)<br>
+             \\(I_\\mathrm{celk} = ${fmtMath(c.I)}\\,\\mathrm{A}\\)`
+          : `<b>Shrnutí:</b><br>Obvod obsahuje více zdrojů. Proto nemá jeden jednoduchý „celkový odpor zdroje“. Počítají se uzlová napětí, proudy rezistory a proudy jednotlivými zdroji.`)
       : `<b>Shrnutí:</b><br>
         \\(U = ${fmtMath(c.U)}\\,\\mathrm{V}\\)<br>
         \\(R_\\mathrm{celk} = ${fmtMath(c.R)}\\,\\Omega\\)<br>
@@ -775,13 +780,24 @@ function analyzeResistorCircuitMultiSource(sources, resistors){
     return {name:s.name, u:s.u, a:s.a, b:s.b, i:current, p:s.u * current};
   });
 
-  return {
+  const result = {
     kind:'R_MULTI',
     resistors:rEdges,
     sources:sourceResults,
     nodeVoltages:solved.V,
     method:makeKirchhoffMethod(rEdges, vSources, solved)
   };
+
+  if(vSources.length === 1){
+    const Iabs = Math.abs(sourceResults[0].i);
+    if(isFinite(Iabs) && Iabs > 1e-12){
+      result.R = Math.abs(vSources[0].u) / Iabs;
+      result.U = Math.abs(vSources[0].u);
+      result.I = Iabs;
+    }
+  }
+
+  return result;
 }
 
 function solveMNA(resistors, sources){
@@ -884,6 +900,11 @@ function makeKirchhoffMethod(resistors, sources, solved){
     <br><br>
     <b>Vyřešená uzlová napětí:</b><br>
     ${nodeLines}
+    <br><br>
+    Pokud je v obvodu právě jeden zdroj, dopočítá se celkový odpor ze vztahu:
+    \\[
+      R_\\mathrm{celk}=\\frac{U}{I}
+    \\]
   `;
 }
 
@@ -1123,11 +1144,13 @@ function typeset(){
 function generateRandom(){
   const typeAns = prompt('Co chceš generovat? Napiš R pro rezistory nebo C pro kondenzátory.', 'R');
   if(typeAns === null) return;
+
   const kindPart = String(typeAns).trim().toUpperCase().startsWith('C') ? 'capacitor' : 'resistor';
 
-  const ans = prompt(kindPart==='resistor' ? 'Kolik rezistorů chceš použít?' : 'Kolik kondenzátorů chceš použít?', '3');
+  const ans = prompt(kindPart==='resistor' ? 'Kolik rezistorů chceš použít?' : 'Kolik kondenzátorů chceš použít?', '4');
   if(ans === null) return;
-  const n = Math.max(1, Math.min(8, Math.floor(Number(ans))));
+
+  const n = Math.max(1, Math.min(40, Math.floor(Number(ans))));
   if(!isFinite(n)){ toast('Zadej počet prvků.'); return; }
 
   saveHistory();
@@ -1135,54 +1158,111 @@ function generateRandom(){
   items = [];
   counters = {wire:1,resistor:1,capacitor:1,source:1};
 
-  const sx = 30, sy = 26;
-  const mode = (n < 3 || Math.random() < 0.55) ? 'series' : 'parallel';
   const val = () => kindPart==='resistor' ? randR() : randC();
 
-  if(mode === 'series'){
-    addSilent('source', sx, sy+3, 'v', 12);
-    addColumnWire(sx, sy, sy+3);
-    addColumnWire(sx, sy+4, sy+6);
+  /*
+    Spolehlivý generátor:
+    - jedna horní větev obsahuje zdroj,
+    - pod ní je několik paralelních větví,
+    - každá větev obsahuje 1–3 prvky v sérii,
+    - nikdy nevznikne větev jen z vodiče,
+    - pravá sběrnice je blízko, žádný dlouhý ocas.
+  */
 
-    for(let i=0;i<n;i++){
-      const gx = sx + 1 + i*2;
-      addSilent(kindPart, gx, sy, 'h', val());
-    }
-    // vodivé mezery mezi prvky, nikdy ne pod prvkem
-    addSilent('wire', sx, sy, 'h');
-    for(let i=1;i<n;i++){
-      const gx = sx + i*2 + 1;
-      addSilent('wire', gx, sy, 'h');
-    }
-    const rightX = sx + n*2 + 1;
-    addColumnWire(rightX, sy, sy+6);
-    for(let gx=sx; gx<rightX; gx++) addSilent('wire', gx, sy+6, 'h');
-  } else {
-    const left = sx+1, right = sx+7;
-    addSilent('source', sx, sy+2, 'v', 12);
-    addSilent('wire', sx, sy+1, 'v');
-    addSilent('wire', sx, sy+3, 'v');
-    addSilent('wire', sx, sy+1, 'h');
-    addSilent('wire', sx, sy+4, 'h');
-    addColumnWire(left, sy, sy+(n-1)*2);
-    addColumnWire(right, sy, sy+(n-1)*2);
+  const leftX = 8;
+  const sourceY = 6;
+  const firstBranchY = 9;
+  const spacing = 3;
 
-    for(let j=0;j<n;j++){
-      const y = sy + j*2;
-      addSilent('wire', left, y, 'h');
-      addSilent(kindPart, left+1, y, 'h', val());
-      const after = kindPart==='resistor' ? left+3 : left+2;
-      for(let gx=after; gx<right; gx++) addSilent('wire', gx, y, 'h');
+  const maxSeriesInBranch = 3;
+  const branchCount = Math.max(1, Math.ceil(n / maxSeriesInBranch));
+
+  const counts = [];
+  let remaining = n;
+
+  for(let i=0;i<branchCount;i++){
+    const branchesLeft = branchCount - i;
+    const minForRest = branchesLeft - 1;
+    const maxHere = Math.min(maxSeriesInBranch, remaining - minForRest);
+    const c = i === branchCount-1 ? remaining : 1 + Math.floor(Math.random()*maxHere);
+    counts.push(c);
+    remaining -= c;
+  }
+
+  const maxCount = Math.max(...counts);
+  const rightX = leftX + 3 + maxCount * 3;
+
+  const branchYs = counts.map((_,i)=>firstBranchY + i*spacing);
+  const lastBranchY = branchYs[branchYs.length-1];
+
+  // Zdrojová horní větev
+  addSilent('source', leftX, sourceY, 'h', 12);
+  for(let x=leftX+1; x<rightX; x++){
+    addSilent('wire', x, sourceY, 'h');
+  }
+
+  // Levá a pravá sběrnice
+  addColumnWire(leftX, sourceY, lastBranchY);
+  addColumnWire(rightX, sourceY, lastBranchY);
+
+  // Větve s prvky
+  for(let bi=0; bi<branchCount; bi++){
+    const y = branchYs[bi];
+    const count = counts[bi];
+
+    let x = leftX;
+
+    // připojení k levé sběrnici
+    addSilent('wire', x, y, 'h');
+    x++;
+
+    for(let i=0;i<count;i++){
+      addSilent(kindPart, x, y, 'h', val());
+
+      x += kindPart === 'resistor' ? 2 : 1;
+
+      // vodič mezi prvky
+      if(i < count-1){
+        addSilent('wire', x, y, 'h');
+        x++;
+      }
     }
-    const bottom = sy+(n-1)*2;
-    addColumnWire(right, bottom, sy+4);
-    for(let gx=sx; gx<right; gx++) addSilent('wire', gx, sy+4, 'h');
+
+    // dotáhnout větev na pravou sběrnici
+    while(x < rightX){
+      addSilent('wire', x, y, 'h');
+      x++;
+    }
   }
 
   suppressHistory = false;
   render();
-  toast('Vygenerováno.');
+  centerViewOnCircuit();
+  toast('Vygenerován spojený obvod.');
 }
+
+function centerViewOnCircuit(){
+  if(items.length === 0) return;
+
+  const xs = items.map(i=>i.x);
+  const ys = items.map(i=>i.y);
+
+  const minX = Math.min(...xs) - 80;
+  const maxX = Math.max(...xs) + 80;
+  const minY = Math.min(...ys) - 80;
+  const maxY = Math.max(...ys) + 80;
+
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+
+  const r = wrap.getBoundingClientRect();
+
+  pan.x = r.width / 2 - cx;
+  pan.y = r.height / 2 - cy;
+
+  setBoardTransform();
+}
+
 
 function occupiedEdges(){
   const s = new Set();
