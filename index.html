@@ -168,6 +168,10 @@ button.danger{background:var(--danger)}
       <input id="editValue" type="number" step="0.1" />
       <label class="checkrow"><input id="showValue" type="checkbox"> zobrazit hodnotu v plánku</label>
     </div>
+    <div id="sourcePolarityActions" style="display:none;margin-top:10px">
+      <button type="button" class="secondary" onclick="flipPolarity()">Otočit polaritu</button>
+    </div>
+
     <div class="actions">
       <button class="danger" onclick="deleteEditing()">Smazat</button>
       <button class="secondary" onclick="closeModal()">Zrušit</button>
@@ -314,6 +318,7 @@ function addItem(type, edge, preset={}){
     dir: edge.dir,
     showName: type !== 'wire',
     showValue: type !== 'wire',
+    polarity: type === 'source' ? 1 : 0,
     a: edge.a,
     b: type==='resistor' ? spanEnd(edge.a, edge.dir, RES_SPAN) : edge.b
   });
@@ -437,11 +442,19 @@ function capacitorSvg(item){
   `, item);
 }
 function sourceSvg(item){
+  const reversed = item.polarity === -1;
+
+  const shortX = reversed ? 25 : 16;
+  const longX = reversed ? 16 : 25;
+
+  const leftPlateX = Math.min(shortX, longX);
+  const rightPlateX = Math.max(shortX, longX);
+
   return commonSvgWrap(`
-    <line x1="0" y1="20" x2="13" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
-    <line x1="16" y1="14" x2="16" y2="26" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
-    <line x1="25" y1="8" x2="25" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
-    <line x1="25" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="0" y1="20" x2="${leftPlateX-3}" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="${shortX}" y1="14" x2="${shortX}" y2="26" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="${longX}" y1="8" x2="${longX}" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <line x1="${rightPlateX}" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
     ${itemLabelSvg(item,'V')}
   `, item);
 }
@@ -554,7 +567,19 @@ function openEdit(id){
     document.getElementById('showValue').checked = !!item.showValue;
   }
 
+  document.getElementById('sourcePolarityActions').style.display =
+    item.type === 'source' ? 'block' : 'none';
+
   document.getElementById('editModal').style.display = 'flex';
+}
+
+
+function flipPolarity(){
+  const item = items.find(i=>i.id===editingId);
+  if(!item || item.type !== 'source') return;
+
+  item.polarity = item.polarity === -1 ? 1 : -1;
+  render();
 }
 
 function closeModal(){
@@ -621,27 +646,54 @@ function updateCalculations(){
     return;
   }
 
-  if(c.kind === 'R'){
+  if(c.kind === 'R' || c.kind === 'R_MULTI'){
     const parts = c.resistors.map(r=>`
-      <tr><td>${escapeHtml(r.name)}</td><td>\\(${fmtMath(r.r)}\\,\\Omega\\)</td><td>\\(${fmtMath(r.u)}\\,\\mathrm{V}\\)</td><td>\\(${fmtMath(r.i)}\\,\\mathrm{A}\\)</td></tr>
+      <tr>
+        <td>${escapeHtml(r.name)}</td>
+        <td>\\(${fmtMath(r.r)}\\,\\Omega\\)</td>
+        <td>\\(${fmtMath(r.u)}\\,\\mathrm{V}\\)</td>
+        <td>\\(${fmtMath(r.i)}\\,\\mathrm{A}\\)</td>
+        <td>${escapeHtml(r.dir || '')}</td>
+      </tr>
     `).join('');
+
+    const sourceRows = c.sources ? c.sources.map(s=>`
+      <tr>
+        <td>${escapeHtml(s.name)}</td>
+        <td>\\(${fmtMath(s.u)}\\,\\mathrm{V}\\)</td>
+        <td>\\(${fmtMath(s.i)}\\,\\mathrm{A}\\)</td>
+        <td>\\(${fmtMath(s.p)}\\,\\mathrm{W}\\)</td>
+      </tr>
+    `).join('') : '';
+
+    const summary = c.kind === 'R_MULTI'
+      ? `<b>Shrnutí:</b><br>Obvod obsahuje více zdrojů. Proto nemá jeden jednoduchý „celkový odpor zdroje“. Počítají se uzlová napětí, proudy rezistory a proudy jednotlivými zdroji.`
+      : `<b>Shrnutí:</b><br>
+        \\(U = ${fmtMath(c.U)}\\,\\mathrm{V}\\)<br>
+        \\(R_\\mathrm{celk} = ${fmtMath(c.R)}\\,\\Omega\\)<br>
+        \\(I_\\mathrm{celk} = ${fmtMath(c.I)}\\,\\mathrm{A}\\)`;
+
+    const sourceBox = c.kind === 'R_MULTI'
+      ? `<div class="calcBox"><b>Zdroje</b>
+          <table style="width:100%;border-collapse:collapse;margin-top:8px">
+            <tr><th align="left">Zdroj</th><th align="left">U</th><th align="left">I zdrojem</th><th align="left">P</th></tr>${sourceRows}
+          </table>
+          <div style="font-size:13px;color:#64748b;margin-top:8px">Proud zdrojem je v rovnici definován od kladné svorky ke záporné svorce zdroje.</div>
+        </div>`
+      : `<div class="calcBox"><b>Celkový proud</b>
+          \\[
+            I = \\frac{U}{R} = \\frac{${fmtMath(c.U)}}{${fmtMath(c.R)}} = ${fmtMath(c.I)}\\,\\mathrm{A}
+          \\]
+        </div>`;
 
     box.innerHTML = `
       <h2>Vzorový výpočet rezistorového obvodu</h2>
-      <div class="calcBox"><b>Shrnutí:</b><br>
-        \\(U = ${fmtMath(c.U)}\\,\\mathrm{V}\\)<br>
-        \\(R_\\mathrm{celk} = ${fmtMath(c.R)}\\,\\Omega\\)<br>
-        \\(I_\\mathrm{celk} = ${fmtMath(c.I)}\\,\\mathrm{A}\\)
-      </div>
-      <div class="calcBox"><b>Jak jsou prvky zapojené a jak se počítá odpor</b><br>${c.method}</div>
-      <div class="calcBox"><b>Celkový proud</b>
-        \\[
-          I = \\frac{U}{R} = \\frac{${fmtMath(c.U)}}{${fmtMath(c.R)}} = ${fmtMath(c.I)}\\,\\mathrm{A}
-        \\]
-      </div>
+      <div class="calcBox">${summary}</div>
+      <div class="calcBox"><b>Postup výpočtu</b><br>${c.method}</div>
+      ${sourceBox}
       <div class="calcBox"><b>Jednotlivé rezistory</b>
         <table style="width:100%;border-collapse:collapse;margin-top:8px">
-          <tr><th align="left">Rezistor</th><th align="left">R</th><th align="left">U</th><th align="left">I</th></tr>${parts}
+          <tr><th align="left">Rezistor</th><th align="left">R</th><th align="left">U</th><th align="left">I</th><th align="left">Směr</th></tr>${parts}
         </table>
       </div>`;
   } else {
@@ -676,12 +728,165 @@ function analyzeCircuit(){
   const resistors = items.filter(i=>i.type==='resistor');
   const capacitors = items.filter(i=>i.type==='capacitor');
 
-  if(sources.length !== 1) return {error:'Pro výpočet musí být v plánku právě jeden stejnosměrný zdroj.'};
+  if(sources.length < 1) return {error:'Pro výpočet musí být v plánku alespoň jeden stejnosměrný zdroj.'};
   if(resistors.length && capacitors.length) return {error:'V jednom výpočtu zatím použij buď pouze rezistory, nebo pouze kondenzátory.'};
   if(!resistors.length && !capacitors.length) return {error:'V plánku není žádný rezistor ani kondenzátor.'};
 
-  return resistors.length ? analyzeResistorCircuit(sources[0], resistors) : analyzeCapacitorCircuit(sources[0], capacitors);
+  if(resistors.length) return analyzeResistorCircuitMultiSource(sources, resistors);
+
+  if(sources.length !== 1) return {error:'Kapacitní obvody zatím počítám jen s jedním zdrojem. Více zdrojů je připraveno pro rezistorové obvody.'};
+  return analyzeCapacitorCircuit(sources[0], capacitors);
 }
+
+function analyzeResistorCircuitMultiSource(sources, resistors){
+  const net = makeElectricalGraph();
+
+  const rEdges = resistors.map(r=>({
+    id:r.id, name:r.name, r:r.value,
+    a:net.nodeOf(r.a), b:net.nodeOf(r.b)
+  })).filter(e=>e.a!==e.b);
+
+  const vSources = sources.map(s=>{
+    const na = net.nodeOf(s.a);
+    const nb = net.nodeOf(s.b);
+
+    return s.polarity === -1
+      ? {id:s.id, name:s.name, u:s.value, a:nb, b:na}
+      : {id:s.id, name:s.name, u:s.value, a:na, b:nb};
+  });
+
+  if(rEdges.length === 0) return {error:'V plánku není žádný rezistor.'};
+
+  const solved = solveMNA(rEdges, vSources);
+  if(solved.error) return {error:solved.error};
+
+  for(const e of rEdges){
+    const Va = solved.V[e.a] ?? 0;
+    const Vb = solved.V[e.b] ?? 0;
+    const Uab = Va - Vb;
+    const Iab = Uab / e.r;
+    e.u = Math.abs(Uab);
+    e.i = Math.abs(Iab);
+    e.dir = Iab >= 0 ? `${e.a} → ${e.b}` : `${e.b} → ${e.a}`;
+  }
+
+  const sourceResults = vSources.map((s,idx)=>{
+    const current = solved.sourceCurrents[idx];
+    return {name:s.name, u:s.u, a:s.a, b:s.b, i:current, p:s.u * current};
+  });
+
+  return {
+    kind:'R_MULTI',
+    resistors:rEdges,
+    sources:sourceResults,
+    nodeVoltages:solved.V,
+    method:makeKirchhoffMethod(rEdges, vSources, solved)
+  };
+}
+
+function solveMNA(resistors, sources){
+  // Modified nodal analysis:
+  // KCL v uzlech + rovnice ideálních zdrojů V(+) - V(-) = U.
+
+  const nodeSet = new Set();
+  resistors.forEach(r=>{nodeSet.add(r.a); nodeSet.add(r.b);});
+  sources.forEach(s=>{nodeSet.add(s.a); nodeSet.add(s.b);});
+
+  const nodesAll = [...nodeSet];
+  if(nodesAll.length === 0) return {error:'Obvod nemá žádné uzly.'};
+
+  const ground = chooseGround(nodesAll, sources);
+  const nodes = nodesAll.filter(n=>n!==ground);
+  const nodeIndex = Object.fromEntries(nodes.map((n,i)=>[n,i]));
+  const n = nodes.length;
+  const m = sources.length;
+  const size = n + m;
+
+  const A = Array.from({length:size},()=>Array(size).fill(0));
+  const z = Array(size).fill(0);
+
+  function ni(node){ return nodeIndex[node]; }
+
+  for(const r of resistors){
+    const g = 1/r.r;
+
+    if(r.a !== ground) A[ni(r.a)][ni(r.a)] += g;
+    if(r.b !== ground) A[ni(r.b)][ni(r.b)] += g;
+
+    if(r.a !== ground && r.b !== ground){
+      A[ni(r.a)][ni(r.b)] -= g;
+      A[ni(r.b)][ni(r.a)] -= g;
+    }
+  }
+
+  sources.forEach((s,k)=>{
+    const col = n + k;
+
+    // proud zdrojem je definovaný od plus svorky b do minus svorky a
+    if(s.b !== ground){
+      A[ni(s.b)][col] += 1;
+      A[col][ni(s.b)] += 1;
+    }
+    if(s.a !== ground){
+      A[ni(s.a)][col] -= 1;
+      A[col][ni(s.a)] -= 1;
+    }
+
+    z[col] = s.u;
+  });
+
+  const sol = gauss(A,z);
+  if(!sol) return {error:'Rovnice obvodu nemají jednoznačné řešení. Zkontroluj zkratované zdroje, plovoucí části nebo chybějící vodiče.'};
+
+  const V = {};
+  V[ground]=0;
+  nodes.forEach((node,i)=>V[node]=sol[i]);
+
+  const sourceCurrents = sources.map((_,k)=>sol[n+k]);
+  return {V, sourceCurrents, ground};
+}
+
+function chooseGround(nodes, sources){
+  if(sources.length) return sources[0].a;
+  return nodes[0];
+}
+
+function makeKirchhoffMethod(resistors, sources, solved){
+  const srcLines = sources.map(s =>
+    `\\( ${escapeHtml(s.name)}: V_{${s.b}} - V_{${s.a}} = ${fmtMath(s.u)}\\,\\mathrm{V} \\)`
+  ).join('<br>');
+
+  const rLines = resistors.map(r =>
+    `\\( ${escapeHtml(r.name)}: I = \\frac{V_{${r.a}} - V_{${r.b}}}{${fmtMath(r.r)}} \\)`
+  ).join('<br>');
+
+  const nodeLines = Object.entries(solved.V).map(([n,v]) =>
+    `\\( V_{${n}} = ${fmtMath(v)}\\,\\mathrm{V} \\)`
+  ).join('<br>');
+
+  return `
+    Obvod je počítán Kirchhoffovými zákony pomocí uzlových napětí.
+    <br><br>
+    <b>1. Kirchhoffův zákon v uzlech:</b>
+    \\[
+      \\sum I = 0
+    \\]
+    Proud rezistorem:
+    \\[
+      I = \\frac{U}{R}
+    \\]
+    <br>
+    <b>Rovnice rezistorů:</b><br>
+    ${rLines}
+    <br><br>
+    <b>Rovnice ideálních zdrojů:</b><br>
+    ${srcLines}
+    <br><br>
+    <b>Vyřešená uzlová napětí:</b><br>
+    ${nodeLines}
+  `;
+}
+
 
 function analyzeResistorCircuit(src, resistors){
   const net = makeElectricalGraph();
@@ -1098,10 +1303,22 @@ function drawCanvasItem(ctx,it,x,y){
     drawCanvasLabels(ctx,it,'F');
   } else if(it.type==='source'){
     ctx.lineWidth=4;
-    ctx.beginPath(); ctx.moveTo(-20,0); ctx.lineTo(-7,0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-4,-6); ctx.lineTo(-4,6); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(5,-12); ctx.lineTo(5,12); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(20,0); ctx.stroke();
+
+    const reversed = it.polarity === -1;
+    const shortX = reversed ? 5 : -4;
+    const longX = reversed ? -4 : 5;
+
+    const leftPlateX = Math.min(shortX, longX);
+    const rightPlateX = Math.max(shortX, longX);
+
+    ctx.beginPath(); ctx.moveTo(-20,0); ctx.lineTo(leftPlateX-3,0); ctx.stroke();
+
+    ctx.beginPath(); ctx.moveTo(shortX,-6); ctx.lineTo(shortX,6); ctx.stroke();
+
+    ctx.beginPath(); ctx.moveTo(longX,-12); ctx.lineTo(longX,12); ctx.stroke();
+
+    ctx.beginPath(); ctx.moveTo(rightPlateX,0); ctx.lineTo(20,0); ctx.stroke();
+
     drawCanvasLabels(ctx,it,'V');
   }
   ctx.restore();
