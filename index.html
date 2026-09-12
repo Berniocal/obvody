@@ -48,9 +48,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);font-family:
 .item svg{overflow:visible;pointer-events:none}
 .item text{font-size:12px;font-weight:800;fill:#334155;text-anchor:middle}
 .edgePreview{
-  position:fixed;width:12px;height:12px;border-radius:50%;background:rgba(37,99,235,.20);
-  border:2px solid var(--blue);transform:translate(-50%,-50%);pointer-events:none;z-index:9;
+  position:absolute;transform:translate(-50%,-50%);pointer-events:none;z-index:9;opacity:.46;
 }
+.edgePreview svg{overflow:visible;pointer-events:none}
+.edgePreview svg line,.edgePreview svg rect{stroke:#64748b!important}
+.edgePreview svg rect{fill:#e2e8f0!important}
 .bottombar{
   position:fixed;left:0;right:0;bottom:0;height:58px;background:rgba(255,255,255,.95);
   border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;gap:8px;padding:8px;z-index:20;
@@ -217,11 +219,16 @@ function undoLast(){
   render();
 }
 
+function hidePlacementPreview(){
+  preview.style.display = 'none';
+  preview.innerHTML = '';
+}
+
 function toggleTool(tool){
   selectedTool = selectedTool === tool ? null : tool;
   document.querySelectorAll('.tool').forEach(b=>b.classList.remove('selected'));
   if(selectedTool) document.getElementById('tool-'+selectedTool).classList.add('selected');
-  preview.style.display = 'none';
+  hidePlacementPreview();
 }
 
 function screenToBoard(clientX, clientY){
@@ -459,6 +466,50 @@ function sourceSvg(item){
   `, item);
 }
 
+function placementPreviewItem(type, edge){
+  const a = parseNode(edge.a);
+  return {
+    type,
+    x: type==='resistor' ? (edge.dir==='h' ? (a.x+1)*GRID : a.x*GRID) : edge.x,
+    y: type==='resistor' ? (edge.dir==='h' ? a.y*GRID : (a.y+1)*GRID) : edge.y,
+    dir: edge.dir,
+    showName:false,
+    showValue:false,
+    polarity:1,
+    value:null,
+    name:'',
+    a:edge.a,
+    b:type==='resistor' ? spanEnd(edge.a, edge.dir, RES_SPAN) : edge.b
+  };
+}
+
+function updatePlacementPreview(clientX, clientY){
+  if(!selectedTool || selectedTool==='eraser' || isPanning){
+    hidePlacementPreview();
+    return;
+  }
+
+  const p = screenToBoard(clientX, clientY);
+  const edge = nearestEdgePoint(p.x,p.y);
+  if(edge.dist > HIT_TOL || !canPlaceEdge(selectedTool, edge)){
+    hidePlacementPreview();
+    return;
+  }
+
+  const item = placementPreviewItem(selectedTool, edge);
+  const span = item.type === 'resistor' ? RES_SPAN : 1;
+  preview.style.left = (pan.x + item.x) + 'px';
+  preview.style.top = (pan.y + item.y) + 'px';
+  preview.style.width = (item.dir==='h' ? span*GRID : GRID) + 'px';
+  preview.style.height = (item.dir==='h' ? GRID : span*GRID) + 'px';
+
+  if(item.type === 'wire') preview.innerHTML = wireSvg(item);
+  if(item.type === 'resistor') preview.innerHTML = resistorSvg(item);
+  if(item.type === 'source') preview.innerHTML = sourceSvg(item);
+  if(item.type === 'capacitor') preview.innerHTML = capacitorSvg(item);
+  preview.style.display = 'block';
+}
+
 function getVisibleNodes(){
   const counts = {};
   for(const it of items){
@@ -493,9 +544,9 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;',
 
 wrap.addEventListener('pointermove', e => {
   if(selectedTool && selectedTool !== 'eraser' && !isPanning){
-    preview.style.display = 'block';
-    preview.style.left = e.clientX + 'px';
-    preview.style.top = e.clientY + 'px';
+    updatePlacementPreview(e.clientX, e.clientY);
+  } else if(!selectedTool || selectedTool==='eraser') {
+    hidePlacementPreview();
   }
   if(isPanning && !selectedTool){
     pan.x = e.clientX - panStart.dx;
@@ -503,6 +554,8 @@ wrap.addEventListener('pointermove', e => {
     setBoardTransform();
   }
 });
+
+wrap.addEventListener('pointerleave', hidePlacementPreview);
 
 wrap.addEventListener('pointerdown', e => {
   if(selectedTool) return;
@@ -539,6 +592,7 @@ wrap.addEventListener('click', e => {
     return;
   }
   addItem(selectedTool, edge);
+  hidePlacementPreview();
 });
 
 function openEdit(id){
