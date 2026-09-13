@@ -203,6 +203,8 @@ let panStart = null;
 let editingId = null;
 let longPressTimer = null;
 let pointerDownOnItem = false;
+let touchPlacementPointerId = null;
+let suppressPlacementClickUntil = 0;
 
 function setBoardTransform(){ board.style.transform = `translate(${pan.x}px, ${pan.y}px)`; }
 function saveHistory(){
@@ -228,6 +230,7 @@ function toggleTool(tool){
   selectedTool = selectedTool === tool ? null : tool;
   document.querySelectorAll('.tool').forEach(b=>b.classList.remove('selected'));
   if(selectedTool) document.getElementById('tool-'+selectedTool).classList.add('selected');
+  touchPlacementPointerId = null;
   hidePlacementPreview();
 }
 
@@ -540,7 +543,7 @@ function formatComponentValue(item, unit){
   if(item.type === 'source') return engineering(item.value,'V');
   return formatValue(item.value) + ' ' + unit;
 }
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c])); }
 
 wrap.addEventListener('pointermove', e => {
   if(selectedTool && selectedTool !== 'eraser' && !isPanning){
@@ -555,18 +558,63 @@ wrap.addEventListener('pointermove', e => {
   }
 });
 
-wrap.addEventListener('pointerleave', hidePlacementPreview);
+wrap.addEventListener('pointerleave', e => {
+  if(touchPlacementPointerId === e.pointerId) return;
+  hidePlacementPreview();
+});
 
 wrap.addEventListener('pointerdown', e => {
+  if(selectedTool && selectedTool !== 'eraser' && e.pointerType === 'touch'){
+    touchPlacementPointerId = e.pointerId;
+    updatePlacementPreview(e.clientX, e.clientY);
+    try{ wrap.setPointerCapture(e.pointerId); }catch(_){ }
+    e.preventDefault();
+    return;
+  }
+
   if(selectedTool) return;
   isPanning = true;
   panStart = {dx:e.clientX-pan.x, dy:e.clientY-pan.y};
   wrap.setPointerCapture(e.pointerId);
 });
 
-wrap.addEventListener('pointerup', () => { if(isPanning) isPanning = false; });
+wrap.addEventListener('pointerup', e => {
+  if(touchPlacementPointerId === e.pointerId){
+    const tool = selectedTool;
+    if(tool && tool !== 'eraser'){
+      const p = screenToBoard(e.clientX,e.clientY);
+      const edge = nearestEdgePoint(p.x,p.y);
+      if(edge.dist <= HIT_TOL && canPlaceEdge(tool, edge)){
+        addItem(tool, edge);
+      }else if(edge.dist <= HIT_TOL){
+        toast('Tahle hrana už je obsazená.');
+      }
+    }
+
+    touchPlacementPointerId = null;
+    suppressPlacementClickUntil = performance.now() + 700;
+    hidePlacementPreview();
+    try{
+      if(wrap.hasPointerCapture(e.pointerId)) wrap.releasePointerCapture(e.pointerId);
+    }catch(_){ }
+    e.preventDefault();
+    return;
+  }
+
+  if(isPanning) isPanning = false;
+});
+
+wrap.addEventListener('pointercancel', e => {
+  if(touchPlacementPointerId === e.pointerId){
+    touchPlacementPointerId = null;
+    hidePlacementPreview();
+  }
+  if(isPanning) isPanning = false;
+});
 
 wrap.addEventListener('click', e => {
+  if(performance.now() < suppressPlacementClickUntil) return;
+
   const targetItem = e.target.closest?.('.item');
   if(selectedTool === 'eraser'){
     if(targetItem){
