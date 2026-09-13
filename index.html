@@ -543,7 +543,7 @@ function formatComponentValue(item, unit){
   if(item.type === 'source') return engineering(item.value,'V');
   return formatValue(item.value) + ' ' + unit;
 }
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c])); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 wrap.addEventListener('pointermove', e => {
   if(selectedTool && selectedTool !== 'eraser' && !isPanning){
