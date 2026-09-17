@@ -417,12 +417,12 @@ function commonSvgWrap(inner, item){
 
 function itemLabelSvg(item, unit){
   const center = item.type === 'resistor' ? 40 : 20;
-  const lines=[];
-  if(item.showName) lines.push(escapeHtml(item.name));
-  if(item.showValue && item.type !== 'wire') lines.push(formatComponentValue(item, unit));
-  if(lines.length===0) return '';
-  if(lines.length===1) return `<text x="${center}" y="8">${lines[0]}</text>`;
-  return `<text x="${center}" y="4">${lines[0]}</text><text x="${center}" y="40">${lines[1]}</text>`;
+  const name = item.showName ? escapeHtml(item.name) : '';
+  const value = item.showValue && item.type !== 'wire' ? formatComponentValue(item, unit) : '';
+  if(!name && !value) return '';
+  if(name && value) return `<text x="${center}" y="0">${name}</text><text x="${center}" y="46">${value}</text>`;
+  if(name) return `<text x="${center}" y="0">${name}</text>`;
+  return `<text x="${center}" y="46">${value}</text>`;
 }
 
 function wireSvg(item){
@@ -437,12 +437,12 @@ function resistorSvg(item){
   `, item);
 }
 function capacitorSvg(item){
-  const lines=[];
-  if(item.showName) lines.push(escapeHtml(item.name));
-  if(item.showValue) lines.push(formatComponentValue(item,'F'));
-  const label = lines.length===0 ? '' :
-    lines.length===1 ? `<text x="20" y="8">${lines[0]}</text>` :
-    `<text x="20" y="6">${lines[0]}</text><text x="20" y="40">${lines[1]}</text>`;
+  const name = item.showName ? escapeHtml(item.name) : '';
+  const value = item.showValue ? formatComponentValue(item,'F') : '';
+  const label = !name && !value ? '' :
+    name && value ? `<text x="20" y="0">${name}</text><text x="20" y="46">${value}</text>` :
+    name ? `<text x="20" y="0">${name}</text>` :
+    `<text x="20" y="46">${value}</text>`;
   return commonSvgWrap(`
     <line x1="0" y1="20" x2="13" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
     <line x1="16" y1="8" x2="16" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
