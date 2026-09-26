@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-<title>Plánek elektrického obvodu</title><!-- v11: capacitor aligned --><!-- v11: capacitor aligned, placement clicks pass through items -->
+<title>Plánek elektrického obvodu</title><!-- v12: rozbalovací nabídka dalších součástek -->
 <script>
 window.MathJax = { tex:{inlineMath:[['\\(','\\)'],['$','$']]}, svg:{fontCache:'global'} };
 </script>
@@ -30,6 +30,24 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);font-family:
 .tool.selected{border-color:var(--blue);box-shadow:0 0 0 4px rgba(37,99,235,.14),0 4px 10px rgba(15,23,42,.06)}
 .tool.eraser.selected{border-color:var(--danger);box-shadow:0 0 0 4px rgba(185,74,72,.14),0 4px 10px rgba(15,23,42,.06)}
 .tool svg{width:66px;height:34px}
+.desktopOnly{display:flex}
+.mobileOnly{display:none !important}
+.moreWrap{position:relative}
+.moreMenu{
+  position:fixed;top:68px;left:50%;transform:translateX(-50%);width:min(680px,calc(100vw - 16px));
+  display:none;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:10px;background:#fff;
+  border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);z-index:26;
+  max-height:calc(100vh - 84px);overflow:auto;
+}
+.moreMenu.open{display:grid}
+.componentBtn{
+  min-width:0;min-height:78px;padding:7px 5px;border:2px solid var(--line);border-radius:14px;background:#fff;color:#334155;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:none;
+}
+.componentBtn:hover{background:#f8fafc}
+.componentBtn.selected{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.componentBtn svg{width:64px;height:36px}
+.componentBtn span{font-size:12px;font-weight:850;line-height:1.05;text-align:center}
 .help{font-size:13px;color:var(--muted);max-width:430px;line-height:1.25}
 .boardWrap{
   position:absolute;left:0;right:0;top:72px;bottom:58px;overflow:hidden;touch-action:none;background:#eef3f7;
@@ -51,8 +69,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);font-family:
   position:absolute;transform:translate(-50%,-50%);pointer-events:none;z-index:9;opacity:.46;
 }
 .edgePreview svg{overflow:visible;pointer-events:none}
-.edgePreview svg line,.edgePreview svg rect{stroke:#64748b!important}
-.edgePreview svg rect{fill:#e2e8f0!important}
+.edgePreview svg line,.edgePreview svg rect,.edgePreview svg path,.edgePreview svg circle,.edgePreview svg polygon{stroke:#64748b!important}
+.edgePreview svg rect,.edgePreview svg circle{fill:#e2e8f0!important}
 .bottombar{
   position:fixed;left:0;right:0;bottom:0;height:58px;background:rgba(255,255,255,.95);
   border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;gap:8px;padding:8px;z-index:20;
@@ -90,11 +108,18 @@ button.danger{background:var(--danger)}
 }
 .toast.show{opacity:1}
 @media(max-width:700px){
-  .topbar{height:78px;padding:8px}
-  .tool{width:64px;height:50px}
-  .tool svg{width:54px}
+  .topbar{height:78px;padding:8px;gap:6px}
+  .toolsLeft,.toolsRight{gap:6px}
+  .tool{width:54px;height:50px;border-radius:13px}
+  .tool svg{width:46px;height:34px}
+  .desktopOnly{display:none !important}
+  .mobileOnly{display:flex !important}
   .help{display:none}
   .boardWrap{top:78px}
+  .moreMenu{top:78px;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 10px 18px;width:min(420px,calc(100vw - 16px));max-height:calc(100vh - 144px);max-height:calc(100dvh - 144px);overflow-y:auto;overscroll-behavior:contain;align-content:start}
+  .componentBtn{min-height:88px;padding:8px 6px;gap:6px}
+  .componentBtn svg{width:72px;height:40px}
+  .componentBtn span{font-size:13px}
   .bottomBtn{min-width:72px;font-size:14px}
 }
 </style>
@@ -102,17 +127,17 @@ button.danger{background:var(--danger)}
 <body>
 <header class="topbar">
   <div class="toolsLeft">
-    <button class="tool" id="tool-wire" title="Vodič" onclick="toggleTool('wire')" aria-label="Vodič">
+    <button class="tool" id="tool-wire" data-tool="wire" title="Vodič" onclick="toggleTool('wire')" aria-label="Vodič">
       <svg viewBox="0 0 80 40"><line x1="12" y1="20" x2="68" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/></svg>
     </button>
-    <button class="tool" id="tool-resistor" title="Rezistor" onclick="toggleTool('resistor')" aria-label="Rezistor">
+    <button class="tool" id="tool-resistor" data-tool="resistor" title="Rezistor" onclick="toggleTool('resistor')" aria-label="Rezistor">
       <svg viewBox="0 0 80 40">
         <line x1="8" y1="20" x2="24" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
         <rect x="24" y="11" width="32" height="18" rx="3" fill="none" stroke="#1f2937" stroke-width="4"/>
         <line x1="56" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
       </svg>
     </button>
-    <button class="tool" id="tool-capacitor" title="Kondenzátor" onclick="toggleTool('capacitor')" aria-label="Kondenzátor">
+    <button class="tool" id="tool-capacitor" data-tool="capacitor" title="Kondenzátor" onclick="toggleTool('capacitor')" aria-label="Kondenzátor">
       <svg viewBox="0 0 80 40">
         <line x1="8" y1="20" x2="30" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
         <line x1="34" y1="8" x2="34" y2="32" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
@@ -121,7 +146,7 @@ button.danger{background:var(--danger)}
       </svg>
     </button>
 
-    <button class="tool" id="tool-source" title="Stejnosměrný zdroj" onclick="toggleTool('source')" aria-label="Stejnosměrný zdroj">
+    <button class="tool" id="tool-source" data-tool="source" title="Stejnosměrný zdroj" onclick="toggleTool('source')" aria-label="Stejnosměrný zdroj">
       <svg viewBox="0 0 80 40">
         <line x1="8" y1="20" x2="28" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
         <line x1="32" y1="13" x2="32" y2="27" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
@@ -129,10 +154,227 @@ button.danger{background:var(--danger)}
         <line x1="42" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
       </svg>
     </button>
+
+    <button class="tool desktopOnly" id="tool-switch" data-tool="switch" title="Vypínač" onclick="toggleTool('switch')" aria-label="Vypínač">
+      <svg viewBox="0 0 80 40">
+        <line x1="8" y1="24" x2="26" y2="24" stroke="#1f2937" stroke-width="4"/>
+        <circle cx="28" cy="24" r="3" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+        <circle cx="54" cy="24" r="3" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+        <line x1="31" y1="22" x2="51" y2="10" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+        <line x1="57" y1="24" x2="72" y2="24" stroke="#1f2937" stroke-width="4"/>
+      </svg>
+    </button>
+    <button class="tool desktopOnly" id="tool-diode" data-tool="diode" title="Dioda" onclick="toggleTool('diode')" aria-label="Dioda">
+      <svg viewBox="0 0 80 40">
+        <line x1="8" y1="20" x2="28" y2="20" stroke="#1f2937" stroke-width="4"/>
+        <polygon points="28,9 28,31 48,20" fill="none" stroke="#1f2937" stroke-width="3"/>
+        <line x1="50" y1="8" x2="50" y2="32" stroke="#1f2937" stroke-width="4"/>
+        <line x1="50" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4"/>
+      </svg>
+    </button>
+    <button class="tool desktopOnly" id="tool-led" data-tool="led" title="LED" onclick="toggleTool('led')" aria-label="LED">
+      <svg viewBox="0 0 80 40">
+        <line x1="8" y1="24" x2="27" y2="24" stroke="#1f2937" stroke-width="4"/>
+        <polygon points="27,13 27,35 46,24" fill="none" stroke="#1f2937" stroke-width="3"/>
+        <line x1="48" y1="12" x2="48" y2="36" stroke="#1f2937" stroke-width="4"/>
+        <line x1="48" y1="24" x2="72" y2="24" stroke="#1f2937" stroke-width="4"/>
+        <path d="M43 9 L52 3 M49 3 L52 3 L52 6 M51 13 L60 7 M57 7 L60 7 L60 10" fill="none" stroke="#1f2937" stroke-width="2"/>
+      </svg>
+    </button>
+    <button class="tool desktopOnly" id="tool-npn" data-tool="npn" title="NPN tranzistor" onclick="toggleTool('npn')" aria-label="NPN tranzistor">
+      <svg viewBox="0 0 80 40">
+        <line x1="20" y1="20" x2="34" y2="20" stroke="#1f2937" stroke-width="3"/>
+        <line x1="34" y1="9" x2="34" y2="31" stroke="#1f2937" stroke-width="3"/>
+        <line x1="34" y1="13" x2="51" y2="7" stroke="#1f2937" stroke-width="3"/>
+        <line x1="51" y1="7" x2="62" y2="7" stroke="#1f2937" stroke-width="3"/>
+        <line x1="34" y1="27" x2="51" y2="33" stroke="#1f2937" stroke-width="3"/>
+        <line x1="51" y1="33" x2="62" y2="33" stroke="#1f2937" stroke-width="3"/>
+        <polygon points="47,27 55,31 48,35" fill="#1f2937"/>
+      </svg>
+    </button>
+    <button class="tool desktopOnly" id="tool-lamp" data-tool="lamp" title="Žárovka" onclick="toggleTool('lamp')" aria-label="Žárovka">
+      <svg viewBox="0 0 80 40">
+        <line x1="8" y1="20" x2="27" y2="20" stroke="#1f2937" stroke-width="4"/>
+        <circle cx="40" cy="20" r="13" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+        <line x1="31" y1="11" x2="49" y2="29" stroke="#1f2937" stroke-width="2.5"/>
+        <line x1="49" y1="11" x2="31" y2="29" stroke="#1f2937" stroke-width="2.5"/>
+        <line x1="53" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4"/>
+      </svg>
+    </button>
+
+    <button class="tool desktopOnly" id="tool-transformer-top" data-tool="transformer" title="Transformátor" onclick="toggleTool('transformer')" aria-label="Transformátor">
+      <svg viewBox="0 0 80 40">
+        <path d="M27 6 A5 5 0 0 1 27 16 A5 5 0 0 1 27 26 A5 5 0 0 1 27 36" fill="none" stroke="#1f2937" stroke-width="2.8"/>
+        <path d="M53 6 A5 5 0 0 0 53 16 A5 5 0 0 0 53 26 A5 5 0 0 0 53 36" fill="none" stroke="#1f2937" stroke-width="2.8"/>
+        <line x1="36" y1="5" x2="36" y2="35" stroke="#1f2937" stroke-width="2"/>
+        <line x1="44" y1="5" x2="44" y2="35" stroke="#1f2937" stroke-width="2"/>
+        <line x1="10" y1="6" x2="22" y2="6" stroke="#1f2937" stroke-width="3"/>
+        <line x1="10" y1="36" x2="22" y2="36" stroke="#1f2937" stroke-width="3"/>
+        <line x1="58" y1="6" x2="70" y2="6" stroke="#1f2937" stroke-width="3"/>
+        <line x1="58" y1="36" x2="70" y2="36" stroke="#1f2937" stroke-width="3"/>
+      </svg>
+    </button>
+    <button class="tool desktopOnly" id="tool-crossing-top" data-tool="crossing" title="Křížení vodičů bez spojení" onclick="toggleTool('crossing')" aria-label="Křížení vodičů bez spojení">
+      <svg viewBox="0 0 80 40">
+        <line x1="40" y1="4" x2="40" y2="36" stroke="#1f2937" stroke-width="4"/>
+        <path d="M8 20 H25 Q40 4 55 20 H72" fill="none" stroke="#fff" stroke-width="10"/>
+        <path d="M8 20 H25 Q40 4 55 20 H72" fill="none" stroke="#1f2937" stroke-width="4"/>
+      </svg>
+    </button>
+
+    <div class="moreWrap">
+      <button class="tool" id="tool-more" title="Další součástky" onclick="toggleMoreTools(event)" aria-label="Další součástky">
+        <svg viewBox="0 0 80 40">
+          <circle cx="24" cy="14" r="4" fill="#1f2937"/>
+          <circle cx="40" cy="14" r="4" fill="#1f2937"/>
+          <circle cx="56" cy="14" r="4" fill="#1f2937"/>
+          <path d="M32 25 L40 32 L48 25" fill="none" stroke="#1f2937" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="moreMenu" id="moreMenu">
+        <button class="componentBtn mobileOnly" id="menu-switch" data-tool="switch" onclick="toggleTool('switch')" title="Vypínač">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="24" x2="26" y2="24" stroke="#1f2937" stroke-width="4"/>
+            <circle cx="28" cy="24" r="3" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <circle cx="54" cy="24" r="3" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <line x1="31" y1="22" x2="51" y2="10" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+            <line x1="57" y1="24" x2="72" y2="24" stroke="#1f2937" stroke-width="4"/>
+          </svg><span>Vypínač</span>
+        </button>
+        <button class="componentBtn mobileOnly" id="menu-diode" data-tool="diode" onclick="toggleTool('diode')" title="Dioda">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="20" x2="28" y2="20" stroke="#1f2937" stroke-width="4"/>
+            <polygon points="28,9 28,31 48,20" fill="none" stroke="#1f2937" stroke-width="3"/>
+            <line x1="50" y1="8" x2="50" y2="32" stroke="#1f2937" stroke-width="4"/>
+            <line x1="50" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4"/>
+          </svg><span>Dioda</span>
+        </button>
+        <button class="componentBtn mobileOnly" id="menu-led" data-tool="led" onclick="toggleTool('led')" title="LED">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="24" x2="27" y2="24" stroke="#1f2937" stroke-width="4"/>
+            <polygon points="27,13 27,35 46,24" fill="none" stroke="#1f2937" stroke-width="3"/>
+            <line x1="48" y1="12" x2="48" y2="36" stroke="#1f2937" stroke-width="4"/>
+            <line x1="48" y1="24" x2="72" y2="24" stroke="#1f2937" stroke-width="4"/>
+            <path d="M43 9 L52 3 M49 3 L52 3 L52 6 M51 13 L60 7 M57 7 L60 7 L60 10" fill="none" stroke="#1f2937" stroke-width="2"/>
+          </svg><span>LED</span>
+        </button>
+        <button class="componentBtn mobileOnly" id="menu-npn" data-tool="npn" onclick="toggleTool('npn')" title="NPN tranzistor">
+          <svg viewBox="0 0 80 40">
+            <line x1="20" y1="20" x2="34" y2="20" stroke="#1f2937" stroke-width="3"/>
+            <line x1="34" y1="9" x2="34" y2="31" stroke="#1f2937" stroke-width="3"/>
+            <line x1="34" y1="13" x2="51" y2="7" stroke="#1f2937" stroke-width="3"/>
+            <line x1="51" y1="7" x2="62" y2="7" stroke="#1f2937" stroke-width="3"/>
+            <line x1="34" y1="27" x2="51" y2="33" stroke="#1f2937" stroke-width="3"/>
+            <line x1="51" y1="33" x2="62" y2="33" stroke="#1f2937" stroke-width="3"/>
+            <polygon points="47,27 55,31 48,35" fill="#1f2937"/>
+          </svg><span>NPN</span>
+        </button>
+        <button class="componentBtn mobileOnly" id="menu-lamp" data-tool="lamp" onclick="toggleTool('lamp')" title="Žárovka">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="20" x2="27" y2="20" stroke="#1f2937" stroke-width="4"/>
+            <circle cx="40" cy="20" r="13" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <line x1="31" y1="11" x2="49" y2="29" stroke="#1f2937" stroke-width="2.5"/>
+            <line x1="49" y1="11" x2="31" y2="29" stroke="#1f2937" stroke-width="2.5"/>
+            <line x1="53" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4"/>
+          </svg><span>Žárovka</span>
+        </button>
+        <button class="componentBtn" id="tool-motor" data-tool="motor" onclick="toggleTool('motor')" title="Motor">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="20" x2="27" y2="20" stroke="#1f2937" stroke-width="4"/>
+            <circle cx="40" cy="20" r="13" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <text x="40" y="25" text-anchor="middle" font-size="15" font-weight="800" fill="#1f2937">M</text>
+            <line x1="53" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4"/>
+          </svg><span>Motor</span>
+        </button>
+        <button class="componentBtn" id="tool-inductor" data-tool="inductor" onclick="toggleTool('inductor')" title="Cívka">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="20" x2="24" y2="20" stroke="#1f2937" stroke-width="4"/>
+            <path d="M24 20 C24 9 32 9 32 20 C32 9 40 9 40 20 C40 9 48 9 48 20 C48 9 56 9 56 20" fill="none" stroke="#1f2937" stroke-width="3"/>
+            <line x1="56" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4"/>
+          </svg><span>Cívka</span>
+        </button>
+        <button class="componentBtn" id="tool-ammeter" data-tool="ammeter" onclick="toggleTool('ammeter')" title="Ampérmetr">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="20" x2="27" y2="20" stroke="#1f2937" stroke-width="4"/>
+            <circle cx="40" cy="20" r="13" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <text x="40" y="25" text-anchor="middle" font-size="15" font-weight="800" fill="#1f2937">A</text>
+            <line x1="53" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4"/>
+          </svg><span>Ampérmetr</span>
+        </button>
+        <button class="componentBtn" id="tool-voltmeter" data-tool="voltmeter" onclick="toggleTool('voltmeter')" title="Voltmetr">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="20" x2="27" y2="20" stroke="#1f2937" stroke-width="4"/>
+            <circle cx="40" cy="20" r="13" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <text x="40" y="25" text-anchor="middle" font-size="15" font-weight="800" fill="#1f2937">V</text>
+            <line x1="53" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4"/>
+          </svg><span>Voltmetr</span>
+        </button>
+        <button class="componentBtn" id="tool-fuse" data-tool="fuse" onclick="toggleTool('fuse')" title="Pojistka">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="20" x2="25" y2="20" stroke="#1f2937" stroke-width="4"/>
+            <rect x="25" y="13" width="30" height="14" rx="3" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <line x1="30" y1="20" x2="50" y2="20" stroke="#1f2937" stroke-width="2"/>
+            <line x1="55" y1="20" x2="72" y2="20" stroke="#1f2937" stroke-width="4"/>
+          </svg><span>Pojistka</span>
+        </button>
+        <button class="componentBtn" id="tool-variableresistor" data-tool="variableresistor" onclick="toggleTool('variableresistor')" title="Proměnný rezistor">
+          <svg viewBox="0 0 80 40">
+            <line x1="5" y1="22" x2="20" y2="22" stroke="#1f2937" stroke-width="4"/>
+            <rect x="20" y="14" width="40" height="16" rx="3" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <line x1="60" y1="22" x2="75" y2="22" stroke="#1f2937" stroke-width="4"/>
+            <line x1="28" y1="34" x2="54" y2="8" stroke="#1f2937" stroke-width="2.5"/>
+            <path d="M48 9 L55 7 L53 14" fill="none" stroke="#1f2937" stroke-width="2.5"/>
+          </svg><span>Proměnný R</span>
+        </button>
+        <button class="componentBtn" id="tool-photodiode" data-tool="photodiode" onclick="toggleTool('photodiode')" title="Fotodioda">
+          <svg viewBox="0 0 80 40">
+            <line x1="8" y1="25" x2="27" y2="25" stroke="#1f2937" stroke-width="4"/>
+            <polygon points="27,14 27,36 46,25" fill="none" stroke="#1f2937" stroke-width="3"/>
+            <line x1="48" y1="13" x2="48" y2="37" stroke="#1f2937" stroke-width="4"/>
+            <line x1="48" y1="25" x2="72" y2="25" stroke="#1f2937" stroke-width="4"/>
+            <path d="M61 3 L53 11 M53 6 L53 11 L58 11 M70 6 L62 14 M62 9 L62 14 L67 14" fill="none" stroke="#1f2937" stroke-width="2"/>
+          </svg><span>Fotodioda</span>
+        </button>
+        <button class="componentBtn" id="tool-thermistor" data-tool="thermistor" onclick="toggleTool('thermistor')" title="Termistor">
+          <svg viewBox="0 0 80 40">
+            <line x1="5" y1="22" x2="20" y2="22" stroke="#1f2937" stroke-width="4"/>
+            <rect x="20" y="14" width="40" height="16" rx="3" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <line x1="60" y1="22" x2="75" y2="22" stroke="#1f2937" stroke-width="4"/>
+            <line x1="28" y1="34" x2="54" y2="8" stroke="#1f2937" stroke-width="2.5"/>
+            <line x1="28" y1="34" x2="22" y2="28" stroke="#1f2937" stroke-width="2.5"/>
+          </svg><span>Termistor</span>
+        </button>
+        <button class="componentBtn" id="tool-photoresistor" data-tool="photoresistor" onclick="toggleTool('photoresistor')" title="Fotorezistor">
+          <svg viewBox="0 0 80 40">
+            <line x1="5" y1="25" x2="19" y2="25" stroke="#1f2937" stroke-width="4"/>
+            <rect x="19" y="17" width="40" height="16" rx="3" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+            <line x1="59" y1="25" x2="75" y2="25" stroke="#1f2937" stroke-width="4"/>
+            <path d="M58 2 L50 10 M50 5 L50 10 L55 10 M69 5 L61 13 M61 8 L61 13 L66 13" fill="none" stroke="#1f2937" stroke-width="2"/>
+          </svg><span>Fotorezistor</span>
+        </button>
+        <button class="componentBtn mobileOnly" id="menu-transformer" data-tool="transformer" onclick="toggleTool('transformer')" title="Transformátor">
+          <svg viewBox="0 0 80 40">
+            <path d="M26 8 A5 5 0 0 1 26 18 A5 5 0 0 1 26 28 A5 5 0 0 1 26 38" fill="none" stroke="#1f2937" stroke-width="2.5"/>
+            <path d="M54 8 A5 5 0 0 0 54 18 A5 5 0 0 0 54 28 A5 5 0 0 0 54 38" fill="none" stroke="#1f2937" stroke-width="2.5"/>
+            <line x1="36" y1="5" x2="36" y2="35" stroke="#1f2937" stroke-width="2"/><line x1="44" y1="5" x2="44" y2="35" stroke="#1f2937" stroke-width="2"/>
+            <line x1="8" y1="8" x2="21" y2="8" stroke="#1f2937" stroke-width="3"/><line x1="8" y1="38" x2="21" y2="38" stroke="#1f2937" stroke-width="3"/>
+            <line x1="59" y1="8" x2="72" y2="8" stroke="#1f2937" stroke-width="3"/><line x1="59" y1="38" x2="72" y2="38" stroke="#1f2937" stroke-width="3"/>
+          </svg><span>Transformátor</span>
+        </button>
+        <button class="componentBtn mobileOnly" id="menu-crossing" data-tool="crossing" onclick="toggleTool('crossing')" title="Křížení vodičů bez spojení">
+          <svg viewBox="0 0 80 40">
+            <line x1="40" y1="4" x2="40" y2="36" stroke="#1f2937" stroke-width="4"/>
+            <path d="M8 20 H26 Q40 3 54 20 H72" fill="none" stroke="#fff" stroke-width="9"/>
+            <path d="M8 20 H26 Q40 3 54 20 H72" fill="none" stroke="#1f2937" stroke-width="4"/>
+          </svg><span>Křížení bez spoje</span>
+        </button>
+      </div>
+    </div>
   </div>
   <div class="help">Vyber prvek a klikni na stranu čtverce. Opětovným kliknutím nástroj zrušíš. Dlouhé podržení otevře úpravy.</div>
   <div class="toolsRight">
-    <button class="tool eraser" id="tool-eraser" title="Guma" onclick="toggleTool('eraser')" aria-label="Guma">
+    <button class="tool eraser" id="tool-eraser" data-tool="eraser" title="Guma" onclick="toggleTool('eraser')" aria-label="Guma">
       <svg viewBox="0 0 80 40">
         <path d="M25 28 L45 8 L62 25 L48 34 L31 34 Z" fill="#fee2e2" stroke="#991b1b" stroke-width="4" stroke-linejoin="round"/>
         <line x1="42" y1="12" x2="58" y2="28" stroke="#991b1b" stroke-width="3"/>
@@ -173,6 +415,18 @@ button.danger{background:var(--danger)}
     <div id="sourcePolarityActions" style="display:none;margin-top:10px">
       <button type="button" class="secondary" onclick="flipPolarity()">Otočit polaritu</button>
     </div>
+    <div id="directionActions" style="display:none;margin-top:10px">
+      <button type="button" class="secondary" onclick="flipDirection()">Otočit směr</button>
+    </div>
+    <div id="switchActions" style="display:none;margin-top:10px">
+      <button type="button" class="secondary" onclick="toggleSwitchState()">Sepnout / rozepnout</button>
+    </div>
+    <div id="transistorActions" style="display:none;margin-top:10px">
+      <button type="button" class="secondary" onclick="flipTransistorSide()">Přehodit stranu báze</button>
+    </div>
+    <div id="transformerActions" style="display:none;margin-top:10px">
+      <button type="button" class="secondary" onclick="rotateTransformer()">Otočit transformátor</button>
+    </div>
 
     <div class="actions">
       <button class="danger" onclick="deleteEditing()">Smazat</button>
@@ -188,15 +442,31 @@ button.danger{background:var(--danger)}
 const GRID = 40;
 const HIT_TOL = 42; // větší tolerance kliknutí na hranu čtverce
 const RES_SPAN = 2; // rezistor zabírá dvě strany čtverce
+const NPN_SPAN = 2; // tranzistor má kolektor a emitor přes dva dílky, bázi kolmo uprostřed
 const board = document.getElementById('board');
 const wrap = document.getElementById('wrap');
 const preview = document.getElementById('edgePreview');
+
+const EXTRA_TYPES = new Set(['switch','diode','led','npn','lamp','motor','inductor','ammeter','voltmeter','fuse','variableresistor','photodiode','thermistor','photoresistor','transformer','crossing']);
+const VALUE_TYPES = new Set(['resistor','capacitor','source']);
+const TYPE_META = {
+  switch:{prefix:'S',label:'vypínač'}, diode:{prefix:'D',label:'diodu'}, led:{prefix:'LED',label:'LED'},
+  npn:{prefix:'Q',label:'NPN tranzistor'}, lamp:{prefix:'Ž',label:'žárovku'}, motor:{prefix:'M',label:'motor'},
+  inductor:{prefix:'L',label:'cívku'}, ammeter:{prefix:'A',label:'ampérmetr'}, voltmeter:{prefix:'V',label:'voltmetr'},
+  fuse:{prefix:'F',label:'pojistku'}, variableresistor:{prefix:'Rv',label:'proměnný rezistor'},
+  photodiode:{prefix:'FD',label:'fotodiodu'}, thermistor:{prefix:'RT',label:'termistor'}, photoresistor:{prefix:'RF',label:'fotorezistor'},
+  transformer:{prefix:'T',label:'transformátor'}
+};
+
+function freshCounters(){
+  return {wire:1,resistor:1,capacitor:1,source:1,switch:1,diode:1,led:1,npn:1,lamp:1,motor:1,inductor:1,ammeter:1,voltmeter:1,fuse:1,variableresistor:1,photodiode:1,thermistor:1,photoresistor:1,transformer:1};
+}
 
 let selectedTool = null;
 let historyStack = [];
 let suppressHistory = false;
 let items = [];
-let counters = {wire:1,resistor:1,capacitor:1,source:1};
+let counters = freshCounters();
 let pan = {x:-1200,y:-1200};
 let isPanning = false;
 let panStart = null;
@@ -216,7 +486,7 @@ function undoLast(){
   const last = historyStack.pop();
   if(!last){ toast('Není co vrátit.'); return; }
   const s=JSON.parse(last);
-  items=s.items; counters=s.counters;
+  items=s.items; counters={...freshCounters(),...(s.counters||{})};
   closeModal();
   render();
 }
@@ -226,10 +496,28 @@ function hidePlacementPreview(){
   preview.innerHTML = '';
 }
 
+function toggleMoreTools(e){
+  e?.stopPropagation();
+  const menu = document.getElementById('moreMenu');
+  const shouldOpen = !menu.classList.contains('open');
+  closeMoreTools();
+  if(shouldOpen) menu.classList.add('open');
+}
+function closeMoreTools(){ document.getElementById('moreMenu')?.classList.remove('open'); }
+
+document.addEventListener('pointerdown', e=>{
+  if(!e.target.closest?.('.moreWrap')) closeMoreTools();
+});
+
 function toggleTool(tool){
   selectedTool = selectedTool === tool ? null : tool;
-  document.querySelectorAll('.tool').forEach(b=>b.classList.remove('selected'));
-  if(selectedTool) document.getElementById('tool-'+selectedTool).classList.add('selected');
+  document.querySelectorAll('.tool,.componentBtn').forEach(b=>b.classList.remove('selected'));
+  if(selectedTool){
+    document.querySelectorAll(`[data-tool="${selectedTool}"]`).forEach(b=>b.classList.add('selected'));
+    const visibleDirect = [...document.querySelectorAll(`.tool[data-tool="${selectedTool}"]`)].some(el=>el.offsetParent !== null);
+    if(EXTRA_TYPES.has(selectedTool) && !visibleDirect) document.getElementById('tool-more')?.classList.add('selected');
+  }
+  closeMoreTools();
   touchPlacementPointerId = null;
   hidePlacementPreview();
 }
@@ -278,6 +566,51 @@ function nearestEdgePoint(x,y){
   }
 }
 
+function itemSpan(type){ return (type==='resistor' || type==='npn' || type==='inductor' || type==='variableresistor' || type==='thermistor' || type==='photoresistor') ? 2 : 1; }
+function nearestNodePoint(x,y){
+  const gx=Math.round(x/GRID), gy=Math.round(y/GRID);
+  const nx=gx*GRID, ny=gy*GRID;
+  return {gx,gy,x:nx,y:ny,node:`${gx},${gy}`,dist:Math.hypot(x-nx,y-ny)};
+}
+function crossingNodesSet(){ return new Set(items.filter(i=>i.type==='crossing').map(i=>i.node)); }
+function wireUnitEdges(){
+  const set=new Set();
+  for(const w of items.filter(i=>i.type==='wire')) for(const k of segmentEdgeKeys(w.a,w.b)) set.add(k);
+  return set;
+}
+function canPlaceCrossingAt(node){
+  if(crossingNodesSet().has(node)) return false;
+  const p=parseNode(node), w=wireUnitEdges();
+  const needed=[
+    edgeKey(`${p.x-1},${p.y}`,`${p.x},${p.y}`), edgeKey(`${p.x},${p.y}`,`${p.x+1},${p.y}`),
+    edgeKey(`${p.x},${p.y-1}`,`${p.x},${p.y}`), edgeKey(`${p.x},${p.y}`,`${p.x},${p.y+1}`)
+  ];
+  return needed.every(k=>w.has(k));
+}
+function transformerTerminals(node,dir='h'){
+  const p=parseNode(node);
+  if(dir==='h') return {
+    a:`${p.x-1},${p.y-1}`, b:`${p.x-1},${p.y+1}`, c:`${p.x+1},${p.y-1}`, d:`${p.x+1},${p.y+1}`
+  };
+  return {
+    a:`${p.x-1},${p.y-1}`, b:`${p.x+1},${p.y-1}`, c:`${p.x-1},${p.y+1}`, d:`${p.x+1},${p.y+1}`
+  };
+}
+function makeId(){ return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()+Math.random()); }
+function parseNode(k){ const [x,y]=k.split(',').map(Number); return {x,y}; }
+function spanEnd(a,dir,span){
+  const p=parseNode(a);
+  return dir==='h' ? `${p.x+span},${p.y}` : `${p.x},${p.y+span}`;
+}
+function transistorCenterNode(item){
+  const a=parseNode(item.a), b=parseNode(item.b);
+  return `${(a.x+b.x)/2},${(a.y+b.y)/2}`;
+}
+function transistorBaseNode(item, side=item.side ?? 1){
+  const c=parseNode(transistorCenterNode(item));
+  return item.dir==='h' ? `${c.x},${c.y-side}` : `${c.x-side},${c.y}`;
+}
+
 function addItem(type, edge, preset={}){
   let value = preset.value ?? null;
   let name = preset.name ?? '';
@@ -316,36 +649,62 @@ function addItem(type, edge, preset={}){
     name = name || 'U' + counters.source++;
   }
 
-  saveHistory();
-  items.push({
+  if(TYPE_META[type]){
+    name = name || TYPE_META[type].prefix + counters[type]++;
+  }
+
+  const span = itemSpan(type);
+  const start = parseNode(edge.a);
+  const side = type==='npn' ? (chooseTransistorSide(edge) ?? 1) : 0;
+  const item = {
     id: makeId(), type, name, value,
-    x: type==='resistor'
-      ? (edge.dir==='h' ? (parseNode(edge.a).x + 1)*GRID : parseNode(edge.a).x*GRID)
-      : edge.x,
-    y: type==='resistor'
-      ? (edge.dir==='h' ? parseNode(edge.a).y*GRID : (parseNode(edge.a).y + 1)*GRID)
-      : edge.y,
+    x: edge.dir==='h' ? (start.x + span/2)*GRID : start.x*GRID,
+    y: edge.dir==='h' ? start.y*GRID : (start.y + span/2)*GRID,
     dir: edge.dir,
     showName: type !== 'wire',
-    showValue: type !== 'wire',
-    polarity: type === 'source' ? 1 : 0,
+    showValue: VALUE_TYPES.has(type),
+    polarity: (type === 'source' || type === 'diode' || type === 'led' || type==='photodiode') ? 1 : 0,
+    closed: type === 'switch' ? false : undefined,
+    side: type === 'npn' ? side : undefined,
     a: edge.a,
-    b: type==='resistor' ? spanEnd(edge.a, edge.dir, RES_SPAN) : edge.b
-  });
+    b: spanEnd(edge.a, edge.dir, span)
+  };
+  if(type==='npn') item.c = transistorBaseNode(item,side);
+
+  saveHistory();
+  items.push(item);
   render();
 }
 
-function makeId(){ return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()+Math.random()); }
-function parseNode(k){ const [x,y]=k.split(',').map(Number); return {x,y}; }
-function spanEnd(a,dir,span){
-  const p=parseNode(a);
-  return dir==='h' ? `${p.x+span},${p.y}` : `${p.x},${p.y+span}`;
+function addSpecialItem(type, nodeInfo, dir='h'){
+  if(type==='crossing'){
+    if(!canPlaceCrossingAt(nodeInfo.node)){
+      toast('Křížení bez spoje lze vložit jen tam, kde se opravdu kříží dva celé vodiče.');
+      return false;
+    }
+    saveHistory();
+    items.push({id:makeId(),type:'crossing',node:nodeInfo.node,x:nodeInfo.x,y:nodeInfo.y,dir:'x',name:'',showName:false,showValue:false});
+    render();
+    return true;
+  }
+  if(type==='transformer'){
+    if(items.some(i=>i.type==='transformer' && i.node===nodeInfo.node)){
+      toast('Tady už transformátor je.');
+      return false;
+    }
+    const t=transformerTerminals(nodeInfo.node,dir);
+    saveHistory();
+    items.push({id:makeId(),type:'transformer',node:nodeInfo.node,x:nodeInfo.x,y:nodeInfo.y,dir,name:'T'+counters.transformer++,showName:true,showValue:false,...t});
+    render();
+    return true;
+  }
+  return false;
 }
 
 function priority(it){
   if(it.type==='wire') return 0;
-  if(it.type==='source' || it.type==='resistor' || it.type==='capacitor') return 2;
-  return 1;
+  if(it.type==='crossing') return 5;
+  return 2;
 }
 function render(){
   board.innerHTML = '';
@@ -355,8 +714,23 @@ function render(){
     const el = document.createElement('div');
     el.className = 'item';
     el.dataset.id = item.id;
-    const span = item.type === 'resistor' ? RES_SPAN : 1;
-    if(item.dir === 'h'){
+    const span = itemSpan(item.type);
+    if(item.type==='crossing'){
+      el.style.left = (item.x - GRID/2) + 'px';
+      el.style.top = (item.y - GRID/2) + 'px';
+      el.style.width = GRID + 'px';
+      el.style.height = GRID + 'px';
+    }else if(item.type==='transformer'){
+      el.style.left = (item.x - 60) + 'px';
+      el.style.top = (item.y - 60) + 'px';
+      el.style.width = '120px';
+      el.style.height = '120px';
+    }else if(item.type==='npn'){
+      el.style.left = (item.x - GRID) + 'px';
+      el.style.top = (item.y - GRID) + 'px';
+      el.style.width = (2*GRID) + 'px';
+      el.style.height = (2*GRID) + 'px';
+    }else if(item.dir === 'h'){
       el.style.left = (item.x - (span*GRID)/2) + 'px';
       el.style.top = (item.y - GRID/2) + 'px';
       el.style.width = (span*GRID) + 'px';
@@ -368,15 +742,13 @@ function render(){
       el.style.height = (span*GRID) + 'px';
     }
 
-    if(item.type === 'wire') el.innerHTML = wireSvg(item);
-    if(item.type === 'resistor') el.innerHTML = resistorSvg(item);
-    if(item.type === 'source') el.innerHTML = sourceSvg(item);
-    if(item.type === 'capacitor') el.innerHTML = capacitorSvg(item);
+    el.innerHTML = itemSvg(item);
 
     el.addEventListener('pointerdown', () => {
       // Při vkládání nového prvku nesmí starý prvek blokovat kliknutí na hranu mřížky.
       // Dlouhé podržení pro úpravy funguje jen tehdy, když není aktivní vkládací nástroj.
       if(selectedTool && selectedTool !== 'eraser') return;
+      if(item.type==='crossing') return;
 
       pointerDownOnItem = true;
       clearTimeout(longPressTimer);
@@ -409,20 +781,46 @@ function render(){
 
 function commonSvgWrap(inner, item){
   const rot = item.dir === 'v' ? 'rotate(90 20 20)' : '';
-  const size = item.type === 'resistor' ? 112 : 72;
-  const left = item.type === 'resistor' ? -16 : -16;
-  const view = item.type === 'resistor' ? '-16 -16 112 72' : '-16 -16 72 72';
+  const wide = ['resistor','inductor','variableresistor','thermistor','photoresistor'].includes(item.type);
+  const size = wide ? 112 : 72;
+  const left = -16;
+  const view = wide ? '-16 -16 112 72' : '-16 -16 72 72';
   return `<svg viewBox="${view}" width="${size}" height="72" style="position:absolute;left:${left}px;top:-16px"><g transform="${rot}">${inner}</g></svg>`;
 }
 
 function itemLabelSvg(item, unit){
-  const center = item.type === 'resistor' ? 40 : 20;
+  const center = ['resistor','inductor','variableresistor','thermistor','photoresistor'].includes(item.type) ? 40 : 20;
+  const nameY = (item.type === 'led' || item.type==='photodiode' || item.type==='photoresistor') ? -8 : 0;
   const name = item.showName ? escapeHtml(item.name) : '';
   const value = item.showValue && item.type !== 'wire' ? formatComponentValue(item, unit) : '';
   if(!name && !value) return '';
-  if(name && value) return `<text x="${center}" y="0">${name}</text><text x="${center}" y="46">${value}</text>`;
-  if(name) return `<text x="${center}" y="0">${name}</text>`;
+  if(name && value) return `<text x="${center}" y="${nameY}">${name}</text><text x="${center}" y="46">${value}</text>`;
+  if(name) return `<text x="${center}" y="${nameY}">${name}</text>`;
   return `<text x="${center}" y="46">${value}</text>`;
+}
+
+function itemSvg(item){
+  if(item.type==='wire') return wireSvg(item);
+  if(item.type==='resistor') return resistorSvg(item);
+  if(item.type==='source') return sourceSvg(item);
+  if(item.type==='capacitor') return capacitorSvg(item);
+  if(item.type==='switch') return switchSvg(item);
+  if(item.type==='diode') return diodeSvg(item,false);
+  if(item.type==='led') return diodeSvg(item,true);
+  if(item.type==='npn') return transistorSvg(item);
+  if(item.type==='lamp') return lampSvg(item);
+  if(item.type==='motor') return meterLikeSvg(item,'M');
+  if(item.type==='inductor') return inductorSvg(item);
+  if(item.type==='ammeter') return meterLikeSvg(item,'A');
+  if(item.type==='voltmeter') return meterLikeSvg(item,'V');
+  if(item.type==='fuse') return fuseSvg(item);
+  if(item.type==='variableresistor') return variableResistorSvg(item);
+  if(item.type==='photodiode') return photoDiodeSvg(item);
+  if(item.type==='thermistor') return thermistorSvg(item);
+  if(item.type==='photoresistor') return photoResistorSvg(item);
+  if(item.type==='transformer') return transformerSvg(item);
+  if(item.type==='crossing') return crossingSvg(item);
+  return '';
 }
 
 function wireSvg(item){
@@ -468,22 +866,175 @@ function sourceSvg(item){
     ${itemLabelSvg(item,'V')}
   `, item);
 }
+function switchSvg(item){
+  const y2 = item.closed ? 20 : 8;
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="11" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <circle cx="13" cy="20" r="2.5" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+    <circle cx="29" cy="20" r="2.5" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+    <line x1="15" y1="18" x2="27" y2="${y2}" stroke="#1f2937" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="31" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4"/>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function diodeSvg(item,isLed){
+  const flip = item.polarity===-1 ? 'translate(40 0) scale(-1 1)' : '';
+  const ledArrows = isLed ? `
+    <path d="M25 8 L31 2 M28 2 L31 2 L31 5" fill="none" stroke="#1f2937" stroke-width="2"/>
+    <path d="M30 12 L36 6 M33 6 L36 6 L36 9" fill="none" stroke="#1f2937" stroke-width="2"/>
+  ` : '';
+  return commonSvgWrap(`
+    <g transform="${flip}">
+      <line x1="0" y1="20" x2="12" y2="20" stroke="#1f2937" stroke-width="4"/>
+      <polygon points="12,10 12,30 27,20" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+      <line x1="29" y1="9" x2="29" y2="31" stroke="#1f2937" stroke-width="3.5"/>
+      <line x1="29" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4"/>
+      ${ledArrows}
+    </g>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function lampSvg(item){
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="8" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <circle cx="20" cy="20" r="12" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+    <line x1="12" y1="12" x2="28" y2="28" stroke="#1f2937" stroke-width="2.5"/>
+    <line x1="28" y1="12" x2="12" y2="28" stroke="#1f2937" stroke-width="2.5"/>
+    <line x1="32" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4"/>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function meterLikeSvg(item,letter){
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="8" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <circle cx="20" cy="20" r="12" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+    <text x="20" y="25" style="font-size:14px">${letter}</text>
+    <line x1="32" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4"/>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function inductorSvg(item){
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="16" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <path d="M16 20 A6 6 0 0 1 28 20 A6 6 0 0 1 40 20 A6 6 0 0 1 52 20 A6 6 0 0 1 64 20" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>
+    <line x1="64" y1="20" x2="80" y2="20" stroke="#1f2937" stroke-width="4"/>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function fuseSvg(item){
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="9" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <rect x="9" y="13" width="22" height="14" rx="3" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+    <line x1="13" y1="20" x2="27" y2="20" stroke="#1f2937" stroke-width="2"/>
+    <line x1="31" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4"/>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function variableResistorSvg(item){
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="14" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <rect x="14" y="10" width="52" height="20" rx="4" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+    <line x1="66" y1="20" x2="80" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <line x1="25" y1="36" x2="55" y2="6" stroke="#1f2937" stroke-width="2.5"/>
+    <path d="M49 7 L56 5 L54 12" fill="none" stroke="#1f2937" stroke-width="2.5"/>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function photoDiodeSvg(item){
+  const flip = item.polarity===-1 ? 'translate(40 0) scale(-1 1)' : '';
+  return commonSvgWrap(`
+    <g transform="${flip}">
+      <line x1="0" y1="20" x2="12" y2="20" stroke="#1f2937" stroke-width="4"/>
+      <polygon points="12,10 12,30 27,20" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+      <line x1="29" y1="9" x2="29" y2="31" stroke="#1f2937" stroke-width="3.5"/>
+      <line x1="29" y1="20" x2="40" y2="20" stroke="#1f2937" stroke-width="4"/>
+      <path d="M37 1 L31 7 M31 2 L31 7 L36 7 M42 5 L36 11 M36 6 L36 11 L41 11" fill="none" stroke="#1f2937" stroke-width="2"/>
+    </g>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function thermistorSvg(item){
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="14" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <rect x="14" y="10" width="52" height="20" rx="4" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+    <line x1="66" y1="20" x2="80" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <line x1="25" y1="36" x2="55" y2="6" stroke="#1f2937" stroke-width="2.5"/>
+    <line x1="25" y1="36" x2="18" y2="29" stroke="#1f2937" stroke-width="2.5"/>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function photoResistorSvg(item){
+  return commonSvgWrap(`
+    <line x1="0" y1="20" x2="14" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <rect x="14" y="10" width="52" height="20" rx="4" fill="#fff" stroke="#1f2937" stroke-width="3"/>
+    <line x1="66" y1="20" x2="80" y2="20" stroke="#1f2937" stroke-width="4"/>
+    <path d="M61 -7 L53 1 M53 -4 L53 1 L58 1 M72 -4 L64 4 M64 -1 L64 4 L69 4" fill="none" stroke="#1f2937" stroke-width="2"/>
+    ${itemLabelSvg(item,'')}
+  `,item);
+}
+function crossingSvg(item){
+  return `<svg viewBox="0 0 40 40" width="40" height="40" style="position:absolute;left:0;top:0;overflow:visible">
+    <line x1="20" y1="0" x2="20" y2="40" stroke="#1f2937" stroke-width="4"/>
+    <path d="M0 20 H12 Q20 6 28 20 H40" fill="none" stroke="#fff" stroke-width="10"/>
+    <path d="M0 20 H12 Q20 6 28 20 H40" fill="none" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+  </svg>`;
+}
+function transformerSvg(item){
+  const rot=item.dir==='v' ? 'rotate(90)' : '';
+  const label=item.showName ? `<text x="0" y="-49">${escapeHtml(item.name)}</text>` : '';
+  return `<svg viewBox="-60 -60 120 120" width="120" height="120" style="position:absolute;left:0;top:0;overflow:visible">
+    <g transform="${rot}">
+      <path d="M-40 -40 H-20 V-28 M-20 28 V40 H-40" fill="none" stroke="#1f2937" stroke-width="4"/>
+      <path d="M40 -40 H20 V-28 M20 28 V40 H40" fill="none" stroke="#1f2937" stroke-width="4"/>
+      <path d="M-20 -28 A7 7 0 0 1 -20 -14 A7 7 0 0 1 -20 0 A7 7 0 0 1 -20 14 A7 7 0 0 1 -20 28" fill="none" stroke="#1f2937" stroke-width="3"/>
+      <path d="M20 -28 A7 7 0 0 0 20 -14 A7 7 0 0 0 20 0 A7 7 0 0 0 20 14 A7 7 0 0 0 20 28" fill="none" stroke="#1f2937" stroke-width="3"/>
+      <line x1="-6" y1="-31" x2="-6" y2="31" stroke="#1f2937" stroke-width="2.5"/>
+      <line x1="6" y1="-31" x2="6" y2="31" stroke="#1f2937" stroke-width="2.5"/>
+    </g>
+    ${label}
+  </svg>`;
+}
+
+function transistorSvg(item){
+  const rot = item.dir==='h' ? 'rotate(90)' : '';
+  const mirror = item.side===-1 ? 'scale(-1 1)' : '';
+  const label = item.showName ? `<text x="0" y="-43">${escapeHtml(item.name)}</text>` : '';
+  return `<svg viewBox="-50 -55 100 110" width="100" height="110" style="position:absolute;left:-10px;top:-15px">
+    <g transform="${rot} ${mirror}">
+      <line x1="0" y1="-40" x2="0" y2="-26" stroke="#1f2937" stroke-width="4"/>
+      <line x1="0" y1="40" x2="0" y2="26" stroke="#1f2937" stroke-width="4"/>
+      <line x1="-40" y1="0" x2="-12" y2="0" stroke="#1f2937" stroke-width="4"/>
+      <line x1="-12" y1="-18" x2="-12" y2="18" stroke="#1f2937" stroke-width="3"/>
+      <line x1="-12" y1="-12" x2="0" y2="-26" stroke="#1f2937" stroke-width="3"/>
+      <line x1="-12" y1="12" x2="0" y2="26" stroke="#1f2937" stroke-width="3"/>
+      <polygon points="-5,18 2,27 -7,25" fill="#1f2937" stroke="#1f2937" stroke-width="1"/>
+      <circle cx="0" cy="0" r="25" fill="none" stroke="#1f2937" stroke-width="2"/>
+    </g>
+    ${label}
+  </svg>`;
+}
 
 function placementPreviewItem(type, edge){
+  const span=itemSpan(type);
   const a = parseNode(edge.a);
-  return {
+  const side=type==='npn' ? (chooseTransistorSide(edge) ?? 1) : 0;
+  const item={
     type,
-    x: type==='resistor' ? (edge.dir==='h' ? (a.x+1)*GRID : a.x*GRID) : edge.x,
-    y: type==='resistor' ? (edge.dir==='h' ? a.y*GRID : (a.y+1)*GRID) : edge.y,
+    x: edge.dir==='h' ? (a.x+span/2)*GRID : a.x*GRID,
+    y: edge.dir==='h' ? a.y*GRID : (a.y+span/2)*GRID,
     dir: edge.dir,
     showName:false,
     showValue:false,
     polarity:1,
+    closed:false,
+    side:type==='npn'?side:undefined,
     value:null,
     name:'',
     a:edge.a,
-    b:type==='resistor' ? spanEnd(edge.a, edge.dir, RES_SPAN) : edge.b
+    b:spanEnd(edge.a, edge.dir, span)
   };
+  if(type==='npn') item.c=transistorBaseNode(item,side);
+  return item;
 }
 
 function updatePlacementPreview(clientX, clientY){
@@ -493,6 +1044,23 @@ function updatePlacementPreview(clientX, clientY){
   }
 
   const p = screenToBoard(clientX, clientY);
+  if(selectedTool==='crossing' || selectedTool==='transformer'){
+    const n=nearestNodePoint(p.x,p.y);
+    if(n.dist>HIT_TOL){ hidePlacementPreview(); return; }
+    if(selectedTool==='crossing' && !canPlaceCrossingAt(n.node)){ hidePlacementPreview(); return; }
+    const edge=nearestEdgePoint(p.x,p.y);
+    const item=selectedTool==='crossing'
+      ? {type:'crossing',node:n.node,x:n.x,y:n.y,dir:'x',name:'',showName:false,showValue:false}
+      : {type:'transformer',node:n.node,x:n.x,y:n.y,dir:edge.dir,name:'',showName:false,showValue:false,...transformerTerminals(n.node,edge.dir)};
+    preview.style.left=(pan.x+n.x)+'px';
+    preview.style.top=(pan.y+n.y)+'px';
+    preview.style.width=selectedTool==='crossing' ? GRID+'px' : '120px';
+    preview.style.height=selectedTool==='crossing' ? GRID+'px' : '120px';
+    preview.innerHTML=itemSvg(item);
+    preview.style.display='block';
+    return;
+  }
+
   const edge = nearestEdgePoint(p.x,p.y);
   if(edge.dist > HIT_TOL || !canPlaceEdge(selectedTool, edge)){
     hidePlacementPreview();
@@ -500,26 +1068,29 @@ function updatePlacementPreview(clientX, clientY){
   }
 
   const item = placementPreviewItem(selectedTool, edge);
-  const span = item.type === 'resistor' ? RES_SPAN : 1;
+  const span = itemSpan(item.type);
   preview.style.left = (pan.x + item.x) + 'px';
   preview.style.top = (pan.y + item.y) + 'px';
-  preview.style.width = (item.dir==='h' ? span*GRID : GRID) + 'px';
-  preview.style.height = (item.dir==='h' ? GRID : span*GRID) + 'px';
+  if(item.type==='npn'){
+    preview.style.width = (2*GRID) + 'px';
+    preview.style.height = (2*GRID) + 'px';
+  }else{
+    preview.style.width = (item.dir==='h' ? span*GRID : GRID) + 'px';
+    preview.style.height = (item.dir==='h' ? GRID : span*GRID) + 'px';
+  }
 
-  if(item.type === 'wire') preview.innerHTML = wireSvg(item);
-  if(item.type === 'resistor') preview.innerHTML = resistorSvg(item);
-  if(item.type === 'source') preview.innerHTML = sourceSvg(item);
-  if(item.type === 'capacitor') preview.innerHTML = capacitorSvg(item);
+  preview.innerHTML = itemSvg(item);
   preview.style.display = 'block';
 }
 
 function getVisibleNodes(){
   const counts = {};
+  const crossing=crossingNodesSet();
   for(const it of items){
-    counts[it.a]=(counts[it.a]||0)+1;
-    counts[it.b]=(counts[it.b]||0)+1;
+    if(it.type==='crossing') continue;
+    for(const k of ['a','b','c','d']) if(it[k]) counts[it[k]]=(counts[it[k]]||0)+1;
   }
-  return Object.keys(counts).filter(k=>counts[k]>=3);
+  return Object.keys(counts).filter(k=>counts[k]>=3 && !crossing.has(k));
 }
 
 function formatValue(v){ return Number(v).toLocaleString('cs-CZ',{maximumFractionDigits:2}); }
@@ -583,11 +1154,18 @@ wrap.addEventListener('pointerup', e => {
     const tool = selectedTool;
     if(tool && tool !== 'eraser'){
       const p = screenToBoard(e.clientX,e.clientY);
-      const edge = nearestEdgePoint(p.x,p.y);
-      if(edge.dist <= HIT_TOL && canPlaceEdge(tool, edge)){
-        addItem(tool, edge);
-      }else if(edge.dist <= HIT_TOL){
-        toast('Tahle hrana už je obsazená.');
+      if(tool==='crossing' || tool==='transformer'){
+        const n=nearestNodePoint(p.x,p.y);
+        const dir=nearestEdgePoint(p.x,p.y).dir;
+        if(n.dist<=HIT_TOL) addSpecialItem(tool,n,dir);
+        else toast('Klikni blíž k průsečíku mřížky.');
+      }else{
+        const edge = nearestEdgePoint(p.x,p.y);
+        if(edge.dist <= HIT_TOL && canPlaceEdge(tool, edge)){
+          addItem(tool, edge);
+        }else if(edge.dist <= HIT_TOL){
+          toast('Tahle hrana už je obsazená.');
+        }
       }
     }
 
@@ -630,6 +1208,14 @@ wrap.addEventListener('click', e => {
   if(!selectedTool) return;
 
   const p = screenToBoard(e.clientX,e.clientY);
+  if(selectedTool==='crossing' || selectedTool==='transformer'){
+    const n=nearestNodePoint(p.x,p.y);
+    if(n.dist>HIT_TOL){ toast('Klikni blíž k průsečíku mřížky.'); return; }
+    const dir=nearestEdgePoint(p.x,p.y).dir;
+    addSpecialItem(selectedTool,n,dir);
+    hidePlacementPreview();
+    return;
+  }
   const edge = nearestEdgePoint(p.x,p.y);
   if(edge.dist > HIT_TOL){
     toast('Klikni přímo na stranu čtverce v síti.');
@@ -643,16 +1229,23 @@ wrap.addEventListener('click', e => {
   hidePlacementPreview();
 });
 
+function typeTitle(type){
+  return {
+    wire:'Upravit vodič',resistor:'Upravit rezistor',capacitor:'Upravit kondenzátor',source:'Upravit zdroj',
+    switch:'Upravit vypínač',diode:'Upravit diodu',led:'Upravit LED',npn:'Upravit NPN tranzistor',
+    lamp:'Upravit žárovku',motor:'Upravit motor',inductor:'Upravit cívku',ammeter:'Upravit ampérmetr',
+    voltmeter:'Upravit voltmetr',fuse:'Upravit pojistku', variableresistor:'Upravit proměnný rezistor',
+    photodiode:'Upravit fotodiodu',thermistor:'Upravit termistor',photoresistor:'Upravit fotorezistor',transformer:'Upravit transformátor'
+  }[type] || 'Upravit prvek';
+}
+
 function openEdit(id){
   if(selectedTool === 'eraser') return;
   editingId = id;
   const item = items.find(i=>i.id===id);
   if(!item) return;
 
-  document.getElementById('modalTitle').textContent =
-    item.type === 'wire' ? 'Upravit vodič' :
-    item.type === 'resistor' ? 'Upravit rezistor' : item.type === 'capacitor' ? 'Upravit kondenzátor' : 'Upravit zdroj';
-
+  document.getElementById('modalTitle').textContent = typeTitle(item.type);
   document.getElementById('editName').value = item.name;
   document.getElementById('showName').checked = !!item.showName;
   const vf = document.getElementById('valueField');
@@ -660,27 +1253,65 @@ function openEdit(id){
   if(item.type === 'wire'){
     vf.style.display = 'none';
     document.getElementById('showName').parentElement.style.display = 'none';
-  }else{
+  }else if(VALUE_TYPES.has(item.type)){
     vf.style.display = 'block';
     document.getElementById('showName').parentElement.style.display = 'flex';
     document.getElementById('editValueLabel').textContent =
       item.type === 'resistor' ? 'Odpor v ohmech' : item.type === 'capacitor' ? 'Kapacita v mikrofaradech' : 'Napětí ve voltech';
     document.getElementById('editValue').value = item.type==='capacitor' ? item.value*1e6 : item.value;
     document.getElementById('showValue').checked = !!item.showValue;
+  }else{
+    vf.style.display = 'none';
+    document.getElementById('showName').parentElement.style.display = 'flex';
   }
 
-  document.getElementById('sourcePolarityActions').style.display =
-    item.type === 'source' ? 'block' : 'none';
+  document.getElementById('sourcePolarityActions').style.display = item.type === 'source' ? 'block' : 'none';
+  document.getElementById('directionActions').style.display = (item.type === 'diode' || item.type === 'led' || item.type==='photodiode') ? 'block' : 'none';
+  document.getElementById('switchActions').style.display = item.type === 'switch' ? 'block' : 'none';
+  document.getElementById('transistorActions').style.display = item.type === 'npn' ? 'block' : 'none';
+  document.getElementById('transformerActions').style.display = item.type === 'transformer' ? 'block' : 'none';
 
   document.getElementById('editModal').style.display = 'flex';
 }
 
-
 function flipPolarity(){
   const item = items.find(i=>i.id===editingId);
   if(!item || item.type !== 'source') return;
-
   item.polarity = item.polarity === -1 ? 1 : -1;
+  render();
+}
+function flipDirection(){
+  const item = items.find(i=>i.id===editingId);
+  if(!item || !['diode','led','photodiode'].includes(item.type)) return;
+  item.polarity = item.polarity === -1 ? 1 : -1;
+  render();
+}
+function toggleSwitchState(){
+  const item = items.find(i=>i.id===editingId);
+  if(!item || item.type!=='switch') return;
+  item.closed = !item.closed;
+  render();
+}
+function flipTransistorSide(){
+  const item = items.find(i=>i.id===editingId);
+  if(!item || item.type!=='npn') return;
+  const newSide = item.side===-1 ? 1 : -1;
+  const newC = transistorBaseNode(item,newSide);
+  const occ = occupiedEdges(item.id);
+  if(occ.has(edgeKey(transistorCenterNode(item),newC))){
+    toast('Na druhé straně už vede jiný prvek.');
+    return;
+  }
+  item.side=newSide;
+  item.c=newC;
+  render();
+}
+
+function rotateTransformer(){
+  const item=items.find(i=>i.id===editingId);
+  if(!item || item.type!=='transformer') return;
+  item.dir=item.dir==='h'?'v':'h';
+  Object.assign(item,transformerTerminals(item.node,item.dir));
   render();
 }
 
@@ -698,6 +1329,10 @@ function saveEditing(){
   item.name = newName;
 
   if(item.type !== 'wire'){
+    item.showName = document.getElementById('showName').checked;
+  }
+
+  if(VALUE_TYPES.has(item.type)){
     let v = Number(String(document.getElementById('editValue').value).replace(',','.'));
     if(item.type==='capacitor') v = v*1e-6;
     if(!isFinite(v) || ((item.type==='resistor'||item.type==='capacitor') && v<=0)){
@@ -705,8 +1340,9 @@ function saveEditing(){
       return;
     }
     item.value = v;
-    item.showName = document.getElementById('showName').checked;
     item.showValue = document.getElementById('showValue').checked;
+  }else{
+    item.showValue = false;
   }
 
   closeModal();
@@ -831,6 +1467,11 @@ function updateCalculations(){
 }
 
 function analyzeCircuit(){
+  const unsupported = items.filter(i=>!['wire','resistor','capacitor','source','crossing'].includes(i.type));
+  if(unsupported.length){
+    return {error:'Výpočty zatím podporují vodiče, rezistory, kondenzátory a stejnosměrné zdroje. Ostatní součástky jsou nyní určené pro kreslení plánku.'};
+  }
+
   const sources = items.filter(i=>i.type==='source');
   const resistors = items.filter(i=>i.type==='resistor');
   const capacitors = items.filter(i=>i.type==='capacitor');
@@ -850,12 +1491,12 @@ function analyzeResistorCircuitMultiSource(sources, resistors){
 
   const rEdges = resistors.map(r=>({
     id:r.id, name:r.name, r:r.value,
-    a:net.nodeOf(r.a), b:net.nodeOf(r.b)
+    a:net.nodeOf(r.a,r.dir), b:net.nodeOf(r.b,r.dir)
   })).filter(e=>e.a!==e.b);
 
   const vSources = sources.map(s=>{
-    const na = net.nodeOf(s.a);
-    const nb = net.nodeOf(s.b);
+    const na = net.nodeOf(s.a,s.dir);
+    const nb = net.nodeOf(s.b,s.dir);
 
     return s.polarity === -1
       ? {id:s.id, name:s.name, u:s.value, a:nb, b:na}
@@ -1010,15 +1651,14 @@ function makeKirchhoffMethod(resistors, sources, solved){
   `;
 }
 
-
 function analyzeResistorCircuit(src, resistors){
   const net = makeElectricalGraph();
-  const plus = net.nodeOf(src.b), minus = net.nodeOf(src.a);
+  const plus = net.nodeOf(src.b,src.dir), minus = net.nodeOf(src.a,src.dir);
   if(plus === minus) return {error:'Zdroj je zkratovaný vodiči. Výpočet by v ideálním případě vedl k nekonečnému proudu.'};
 
   const edges = resistors.map(r=>({
     id:r.id, name:r.name, r:r.value,
-    a:net.nodeOf(r.a), b:net.nodeOf(r.b)
+    a:net.nodeOf(r.a,r.dir), b:net.nodeOf(r.b,r.dir)
   })).filter(e=>e.a!==e.b);
 
   const solved = solveEquivalentNetwork(edges, plus, minus, Math.abs(src.value), e=>1/e.r);
@@ -1042,12 +1682,12 @@ function analyzeResistorCircuit(src, resistors){
 
 function analyzeCapacitorCircuit(src, capacitors){
   const net = makeElectricalGraph();
-  const plus = net.nodeOf(src.b), minus = net.nodeOf(src.a);
+  const plus = net.nodeOf(src.b,src.dir), minus = net.nodeOf(src.a,src.dir);
   if(plus === minus) return {error:'Zdroj je zkratovaný vodiči.'};
 
   const edges = capacitors.map(c=>({
     id:c.id, name:c.name, c:c.value,
-    a:net.nodeOf(c.a), b:net.nodeOf(c.b)
+    a:net.nodeOf(c.a,c.dir), b:net.nodeOf(c.b,c.dir)
   })).filter(e=>e.a!==e.b);
 
   const solved = solveEquivalentNetwork(edges, plus, minus, Math.abs(src.value), e=>e.c);
@@ -1070,20 +1710,27 @@ function analyzeCapacitorCircuit(src, capacitors){
 }
 
 function makeElectricalGraph(){
-  // 1) všechny hrany vodičů se spojí do ideálních uzlů
-  // 2) rezistor/kondenzátor/zdroj tvoří prvek mezi dvěma uzly, ale jeho vlastní hrana uzly nespojuje
+  // V křížení bez spoje se geometrický bod rozdělí na vodorovný a svislý elektrický uzel.
   const parent = {};
+  const crossings=crossingNodesSet();
+  function pointKey(point,dir='h'){
+    return crossings.has(point) ? `${point}|${dir==='v'?'v':'h'}` : point;
+  }
   function add(x){ if(!(x in parent)) parent[x]=x; }
   function find(x){ add(x); return parent[x]===x ? x : parent[x]=find(parent[x]); }
   function union(a,b){ a=find(a); b=find(b); if(a!==b) parent[b]=a; }
 
-  for(const it of items){ add(it.a); add(it.b); }
-  for(const w of items.filter(i=>i.type==='wire')) union(w.a,w.b);
+  for(const it of items){
+    if(it.type==='crossing' || it.type==='transformer') continue;
+    if(it.a) add(pointKey(it.a,it.dir));
+    if(it.b) add(pointKey(it.b,it.dir));
+    if(it.c) add(pointKey(it.c,it.dir==='h'?'v':'h'));
+  }
+  for(const w of items.filter(i=>i.type==='wire')) union(pointKey(w.a,w.dir),pointKey(w.b,w.dir));
 
-  // normalize names to compact stable node ids
   const map = new Map(); let n=1;
-  function nodeOf(point){
-    const r=find(point);
+  function nodeOf(point,dir='h'){
+    const r=find(pointKey(point,dir));
     if(!map.has(r)) map.set(r,'N'+(n++));
     return map.get(r);
   }
@@ -1138,7 +1785,7 @@ function buildUnionFind(){
   function add(x){ if(!(x in parent)) parent[x]=x; }
   function find(x){ add(x); return parent[x]===x ? x : parent[x]=find(parent[x]); }
   function union(a,b){ a=find(a); b=find(b); if(a!==b) parent[b]=a; }
-  items.forEach(i=>{add(i.a);add(i.b);});
+  items.forEach(i=>{add(i.a);add(i.b);if(i.c)add(i.c);});
   items.filter(i=>i.type==='wire').forEach(w=>union(w.a,w.b));
   return {find,union,parent};
 }
@@ -1258,7 +1905,7 @@ function generateRandom(){
   saveHistory();
   suppressHistory = true;
   items = [];
-  counters = {wire:1,resistor:1,capacitor:1,source:1};
+  counters = freshCounters();
 
   const val = () => kindPart==='resistor' ? randR() : randC();
 
@@ -1365,36 +2012,48 @@ function centerViewOnCircuit(){
   setBoardTransform();
 }
 
-
-function occupiedEdges(){
+function edgeKey(a,b){ return [a,b].sort().join('|'); }
+function segmentEdgeKeys(aKey,bKey){
+  const a=parseNode(aKey), b=parseNode(bKey);
+  const keys=[];
+  if(a.y===b.y){
+    for(let x=Math.min(a.x,b.x);x<Math.max(a.x,b.x);x++) keys.push(edgeKey(`${x},${a.y}`,`${x+1},${a.y}`));
+  }else if(a.x===b.x){
+    for(let y=Math.min(a.y,b.y);y<Math.max(a.y,b.y);y++) keys.push(edgeKey(`${a.x},${y}`,`${a.x},${y+1}`));
+  }
+  return keys;
+}
+function itemEdgeKeys(it){
+  if(it.type==='crossing' || it.type==='transformer') return [];
+  const keys=segmentEdgeKeys(it.a,it.b);
+  if(it.type==='npn' && it.c) keys.push(edgeKey(transistorCenterNode(it),it.c));
+  return keys;
+}
+function occupiedEdges(excludeId=null){
   const s = new Set();
   for(const it of items){
-    s.add(edgeKey(it.a,it.b));
-    if(it.type==='resistor'){
-      const a=parseNode(it.a), b=parseNode(it.b);
-      if(a.y===b.y){
-        for(let x=Math.min(a.x,b.x); x<Math.max(a.x,b.x); x++) s.add(edgeKey(`${x},${a.y}`,`${x+1},${a.y}`));
-      }else{
-        for(let y=Math.min(a.y,b.y); y<Math.max(a.y,b.y); y++) s.add(edgeKey(`${a.x},${y}`,`${a.x},${y+1}`));
-      }
-    }
+    if(excludeId && it.id===excludeId) continue;
+    for(const key of itemEdgeKeys(it)) s.add(key);
   }
   return s;
 }
-function edgeKey(a,b){ return [a,b].sort().join('|'); }
-function canPlaceEdge(type, edge){
-  const occ = occupiedEdges();
-  if(type==='resistor'){
-    const end = spanEnd(edge.a, edge.dir, RES_SPAN);
-    const a=parseNode(edge.a), b=parseNode(end);
-    if(edge.dir==='h'){
-      for(let x=a.x; x<b.x; x++) if(occ.has(edgeKey(`${x},${a.y}`,`${x+1},${a.y}`))) return false;
-    }else{
-      for(let y=a.y; y<b.y; y++) if(occ.has(edgeKey(`${a.x},${y}`,`${a.x},${y+1}`))) return false;
-    }
-    return true;
+function chooseTransistorSide(edge){
+  const occ=occupiedEdges();
+  const b=spanEnd(edge.a,edge.dir,NPN_SPAN);
+  const main=segmentEdgeKeys(edge.a,b);
+  if(main.some(k=>occ.has(k))) return null;
+  const temp={a:edge.a,b,dir:edge.dir,side:1};
+  for(const side of [1,-1]){
+    const c=transistorBaseNode(temp,side);
+    if(!occ.has(edgeKey(transistorCenterNode(temp),c))) return side;
   }
-  return !occ.has(edgeKey(edge.a, edge.b));
+  return null;
+}
+function canPlaceEdge(type, edge){
+  if(type==='npn') return chooseTransistorSide(edge)!==null;
+  const occ=occupiedEdges();
+  const end=spanEnd(edge.a,edge.dir,itemSpan(type));
+  return segmentEdgeKeys(edge.a,end).every(k=>!occ.has(k));
 }
 
 function addSilent(type,gx,gy,dir,value){
@@ -1424,10 +2083,10 @@ function exportImage(){
   if(items.length===0){ toast('V plánku nic není.'); return; }
 
   const pad = 40;
-  const minX = Math.min(...items.map(i=>i.x)) - 60;
-  const minY = Math.min(...items.map(i=>i.y)) - 60;
-  const maxX = Math.max(...items.map(i=>i.x)) + 60;
-  const maxY = Math.max(...items.map(i=>i.y)) + 60;
+  const minX = Math.min(...items.map(i=>i.x)) - 80;
+  const minY = Math.min(...items.map(i=>i.y)) - 80;
+  const maxX = Math.max(...items.map(i=>i.x)) + 80;
+  const maxY = Math.max(...items.map(i=>i.y)) + 80;
   const w = maxX-minX+pad*2;
   const h = maxY-minY+pad*2;
 
@@ -1463,10 +2122,27 @@ function exportImage(){
 function drawCanvasItem(ctx,it,x,y){
   ctx.save();
   ctx.translate(x,y);
-  if(it.dir==='v') ctx.rotate(Math.PI/2);
   ctx.strokeStyle='#1f2937';
   ctx.fillStyle='#334155';
   ctx.lineWidth=4;
+
+  if(it.type==='npn'){
+    drawCanvasTransistor(ctx,it);
+    ctx.restore();
+    return;
+  }
+  if(it.type==='crossing'){
+    drawCanvasCrossing(ctx);
+    ctx.restore();
+    return;
+  }
+  if(it.type==='transformer'){
+    drawCanvasTransformer(ctx,it);
+    ctx.restore();
+    return;
+  }
+
+  if(it.dir==='v') ctx.rotate(Math.PI/2);
 
   if(it.type==='wire'){
     ctx.beginPath(); ctx.moveTo(-20,0); ctx.lineTo(20,0); ctx.stroke();
@@ -1485,25 +2161,155 @@ function drawCanvasItem(ctx,it,x,y){
     drawCanvasLabels(ctx,it,'F');
   } else if(it.type==='source'){
     ctx.lineWidth=4;
-
     const reversed = it.polarity === -1;
     const shortX = reversed ? 5 : -4;
     const longX = reversed ? -4 : 5;
-
     const leftPlateX = Math.min(shortX, longX);
     const rightPlateX = Math.max(shortX, longX);
-
     ctx.beginPath(); ctx.moveTo(-20,0); ctx.lineTo(leftPlateX-3,0); ctx.stroke();
-
     ctx.beginPath(); ctx.moveTo(shortX,-6); ctx.lineTo(shortX,6); ctx.stroke();
-
     ctx.beginPath(); ctx.moveTo(longX,-12); ctx.lineTo(longX,12); ctx.stroke();
-
     ctx.beginPath(); ctx.moveTo(rightPlateX,0); ctx.lineTo(20,0); ctx.stroke();
-
     drawCanvasLabels(ctx,it,'V');
+  } else if(it.type==='switch'){
+    ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(-9,0);ctx.stroke();
+    ctx.beginPath();ctx.arc(-7,0,2.5,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.arc(9,0,2.5,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-5,-2);ctx.lineTo(7,it.closed?0:-12);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(20,0);ctx.stroke();
+    drawCanvasLabels(ctx,it,'');
+  } else if(it.type==='diode' || it.type==='led' || it.type==='photodiode'){
+    ctx.save();
+    if(it.polarity===-1) ctx.scale(-1,1);
+    ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(-8,0);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-8,-10);ctx.lineTo(-8,10);ctx.lineTo(7,0);ctx.closePath();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(9,-11);ctx.lineTo(9,11);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(9,0);ctx.lineTo(20,0);ctx.stroke();
+    if(it.type==='led'){
+      ctx.lineWidth=2;
+      drawCanvasArrow(ctx,5,-13,11,-19,4);
+      drawCanvasArrow(ctx,10,-9,16,-15,4);
+    }else if(it.type==='photodiode'){
+      ctx.lineWidth=2;
+      drawCanvasArrow(ctx,16,-19,8,-11,4);
+      drawCanvasArrow(ctx,21,-15,13,-7,4);
+    }
+    ctx.restore();
+    drawCanvasLabels(ctx,it,'');
+  } else if(it.type==='lamp'){
+    ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(-12,0);ctx.stroke();
+    ctx.beginPath();ctx.arc(0,0,12,0,Math.PI*2);ctx.stroke();
+    ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(-8,-8);ctx.lineTo(8,8);ctx.moveTo(8,-8);ctx.lineTo(-8,8);ctx.stroke();
+    ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(20,0);ctx.stroke();
+    drawCanvasLabels(ctx,it,'');
+  } else if(it.type==='motor' || it.type==='ammeter' || it.type==='voltmeter'){
+    const letter=it.type==='motor'?'M':it.type==='ammeter'?'A':'V';
+    ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(-12,0);ctx.stroke();
+    ctx.beginPath();ctx.arc(0,0,12,0,Math.PI*2);ctx.stroke();
+    ctx.save();ctx.fillStyle='#334155';ctx.font='bold 14px system-ui, Arial';ctx.fillText(letter,0,5);ctx.restore();
+    ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(20,0);ctx.stroke();
+    drawCanvasLabels(ctx,it,'');
+  } else if(it.type==='inductor'){
+    ctx.beginPath();ctx.moveTo(-40,0);ctx.lineTo(-24,0);ctx.stroke();
+    ctx.lineWidth=3;
+    for(const cx of [-18,-6,6,18]){
+      ctx.beginPath();ctx.arc(cx,0,6,Math.PI,0);ctx.stroke();
+    }
+    ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(24,0);ctx.lineTo(40,0);ctx.stroke();
+    drawCanvasLabels(ctx,it,'');
+  } else if(it.type==='variableresistor'){
+    ctx.beginPath();ctx.moveTo(-40,0);ctx.lineTo(-26,0);ctx.stroke();
+    ctx.strokeRect(-26,-10,52,20);
+    ctx.beginPath();ctx.moveTo(26,0);ctx.lineTo(40,0);ctx.stroke();
+    ctx.lineWidth=2.5;drawCanvasArrow(ctx,-15,16,15,-14,6);
+    drawCanvasLabels(ctx,it,'');
+  } else if(it.type==='thermistor'){
+    ctx.beginPath();ctx.moveTo(-40,0);ctx.lineTo(-26,0);ctx.stroke();
+    ctx.strokeRect(-26,-10,52,20);
+    ctx.beginPath();ctx.moveTo(26,0);ctx.lineTo(40,0);ctx.stroke();
+    ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(-15,16);ctx.lineTo(15,-14);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-15,16);ctx.lineTo(-22,9);ctx.stroke();
+    drawCanvasLabels(ctx,it,'');
+  } else if(it.type==='photoresistor'){
+    ctx.beginPath();ctx.moveTo(-40,0);ctx.lineTo(-26,0);ctx.stroke();
+    ctx.strokeRect(-26,-10,52,20);
+    ctx.beginPath();ctx.moveTo(26,0);ctx.lineTo(40,0);ctx.stroke();
+    ctx.lineWidth=2;
+    drawCanvasArrow(ctx,20,-24,12,-16,4);
+    drawCanvasArrow(ctx,30,-20,22,-12,4);
+    drawCanvasLabels(ctx,it,'');
+  } else if(it.type==='fuse'){
+    ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(-11,0);ctx.stroke();
+    ctx.strokeRect(-11,-7,22,14);
+    ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-7,0);ctx.lineTo(7,0);ctx.stroke();
+    ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(20,0);ctx.stroke();
+    drawCanvasLabels(ctx,it,'');
   }
   ctx.restore();
+}
+
+function drawCanvasCrossing(ctx){
+  ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(0,-20);ctx.lineTo(0,20);ctx.stroke();
+  ctx.save();ctx.strokeStyle='#fff';ctx.lineWidth=10;
+  ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(-8,0);ctx.quadraticCurveTo(0,-14,8,0);ctx.lineTo(20,0);ctx.stroke();ctx.restore();
+  ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(-8,0);ctx.quadraticCurveTo(0,-14,8,0);ctx.lineTo(20,0);ctx.stroke();
+}
+function drawCanvasTransformer(ctx,it){
+  ctx.save();
+  if(it.dir==='v') ctx.rotate(Math.PI/2);
+  ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(-40,-40);ctx.lineTo(-20,-40);ctx.lineTo(-20,-28);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-20,28);ctx.lineTo(-20,40);ctx.lineTo(-40,40);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(40,-40);ctx.lineTo(20,-40);ctx.lineTo(20,-28);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(20,28);ctx.lineTo(20,40);ctx.lineTo(40,40);ctx.stroke();
+  ctx.lineWidth=3;
+  for(const cy of [-21,-7,7,21]){
+    ctx.beginPath();ctx.arc(-20,cy,7,-Math.PI/2,Math.PI/2);ctx.stroke();
+    ctx.beginPath();ctx.arc(20,cy,7,Math.PI/2,-Math.PI/2,true);ctx.stroke();
+  }
+  ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(-6,-31);ctx.lineTo(-6,31);ctx.moveTo(6,-31);ctx.lineTo(6,31);ctx.stroke();
+  ctx.restore();
+  if(it.showName){ctx.save();ctx.fillStyle='#334155';ctx.font='bold 12px system-ui, Arial';ctx.textAlign='center';ctx.fillText(it.name,0,-49);ctx.restore();}
+}
+
+function drawCanvasArrow(ctx,x1,y1,x2,y2,head=4){
+  ctx.beginPath();
+  ctx.moveTo(x1,y1);
+  ctx.lineTo(x2,y2);
+  ctx.stroke();
+  const ang = Math.atan2(y2-y1, x2-x1);
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2 - head*Math.cos(ang - Math.PI/6), y2 - head*Math.sin(ang - Math.PI/6));
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2 - head*Math.cos(ang + Math.PI/6), y2 - head*Math.sin(ang + Math.PI/6));
+  ctx.stroke();
+}
+
+function drawCanvasTransistor(ctx,it){
+  ctx.save();
+  if(it.dir==='h') ctx.rotate(Math.PI/2);
+  if(it.side===-1) ctx.scale(-1,1);
+  ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(0,-40);ctx.lineTo(0,-26);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,40);ctx.lineTo(0,26);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-40,0);ctx.lineTo(-12,0);ctx.stroke();
+  ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(-12,-18);ctx.lineTo(-12,18);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-12,-12);ctx.lineTo(0,-26);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-12,12);ctx.lineTo(0,26);ctx.stroke();
+  ctx.beginPath();ctx.arc(0,0,25,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle='#1f2937';
+  ctx.beginPath();ctx.moveTo(-5,18);ctx.lineTo(2,27);ctx.lineTo(-7,25);ctx.closePath();ctx.fill();
+  ctx.restore();
+  if(it.showName){
+    ctx.save();ctx.fillStyle='#334155';ctx.font='bold 12px system-ui, Arial';ctx.textAlign='center';ctx.fillText(it.name,0,-43);ctx.restore();
+  }
 }
 
 function drawCanvasLabels(ctx,it,unit){
@@ -1511,8 +2317,8 @@ function drawCanvasLabels(ctx,it,unit){
   ctx.fillStyle='#334155';
   ctx.font='bold 12px system-ui, Arial';
   ctx.textAlign='center';
-  const top = it.type==='capacitor' ? -16 : -16;
-  const bottom = it.type==='capacitor' ? 27 : 27;
+  const top = (it.type==='led' || it.type==='photodiode' || it.type==='photoresistor') ? -24 : -16;
+  const bottom = 27;
   if(it.showName) ctx.fillText(it.name,0,top);
   if(it.showValue) ctx.fillText(formatComponentValue(it,unit),0,bottom);
   ctx.restore();
